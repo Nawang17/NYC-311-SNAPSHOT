@@ -15,6 +15,8 @@ import {
   List,
   ThemeIcon,
   Button,
+  Modal,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconAlertTriangle,
@@ -24,13 +26,34 @@ import {
   IconMapPin,
 } from "@tabler/icons-react";
 import axios from "axios";
-
+function InsightModal({ opened, onClose, title, data }) {
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={title}
+      size="lg"
+      scrollAreaComponent={ScrollArea.Autosize}
+    >
+      <List spacing="xs" size="sm">
+        {data.map((item) => (
+          <List.Item key={item.name}>
+            {item.name}: <strong>{item.value.toLocaleString()}</strong>
+          </List.Item>
+        ))}
+      </List>
+    </Modal>
+  );
+}
 export default function HomePage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [borough, setBorough] = useState("ALL");
   const [limit, setLimit] = useState(3000);
-  const [showAllComplaints, setShowAllComplaints] = useState(false);
+  // const [showAllComplaints, setShowAllComplaints] = useState(false);
+  const [modalData, setModalData] = useState([]);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,9 +104,7 @@ export default function HomePage() {
   };
 
   const allComplaints = countByField("complaint_type");
-  const complaintsToShow = showAllComplaints
-    ? allComplaints
-    : allComplaints.slice(0, 5);
+  const complaintsToShow = allComplaints.slice(0, 5);
   const statusBreakdown = countByField("status");
   const topAgencies = countByField("agency_name").slice(0, 5);
   const topLocations = countByField("location_type").slice(0, 5);
@@ -111,16 +132,21 @@ export default function HomePage() {
       );
     }
   };
+  const openModal = (title, data) => {
+    setModalTitle(title);
+    setModalData(data);
+    setModalOpen(true);
+  };
 
   return (
     <Container size="xl" py="xl">
       <Title order={1} c="blue.7" mb="sm">
-        🗽 NYC 311 Snapshot
+        NYC 311 Snapshot
       </Title>
       <Text c="dimmed" size="sm">
         Explore recent 311 service requests across New York City. This snapshot
         covers the most recent {total.toLocaleString()} complaints{" "}
-        {borough === "ALL" ? "citywide" : `from ${borough}`}.
+        <strong>{borough === "ALL" ? "citywide" : `from  ${borough}`}</strong>.
       </Text>
 
       <Text c="dimmed" size="xs" mb="md" mt="xs">
@@ -181,11 +207,16 @@ export default function HomePage() {
                 variant="subtle"
                 size="xs"
                 mt="sm"
-                onClick={() => setShowAllComplaints((prev) => !prev)}
+                onClick={() =>
+                  openModal(
+                    `All Complaint Types - ${
+                      borough === "ALL" ? "Citywide" : borough
+                    }`,
+                    countByField("complaint_type")
+                  )
+                }
               >
-                {showAllComplaints
-                  ? "Show Top 5 Only"
-                  : "Show All Complaint Types"}
+                Show All Complaint Types
               </Button>
             </Card>
           </Grid.Col>
@@ -225,6 +256,21 @@ export default function HomePage() {
                   </List.Item>
                 ))}
               </List>
+              <Button
+                variant="subtle"
+                size="xs"
+                mt="sm"
+                onClick={() =>
+                  openModal(
+                    `All Agencies - ${
+                      borough === "ALL" ? "Citywide" : borough
+                    }`,
+                    countByField("agency_name")
+                  )
+                }
+              >
+                Show All Agencies
+              </Button>
             </Card>
           </Grid.Col>
 
@@ -240,6 +286,21 @@ export default function HomePage() {
                   </List.Item>
                 ))}
               </List>
+              <Button
+                variant="subtle"
+                size="xs"
+                mt="sm"
+                onClick={() =>
+                  openModal(
+                    `All Descriptors - ${
+                      borough === "ALL" ? "Citywide" : borough
+                    }`,
+                    countByField("descriptor")
+                  )
+                }
+              >
+                Show All Descriptors
+              </Button>
             </Card>
           </Grid.Col>
 
@@ -263,6 +324,21 @@ export default function HomePage() {
                   </List.Item>
                 ))}
               </List>
+              <Button
+                variant="subtle"
+                size="xs"
+                mt="sm"
+                onClick={() =>
+                  openModal(
+                    `All Location Types - ${
+                      borough === "ALL" ? "Citywide" : borough
+                    }`,
+                    countByField("location_type")
+                  )
+                }
+              >
+                Show All Locations
+              </Button>
             </Card>
           </Grid.Col>
 
@@ -276,6 +352,12 @@ export default function HomePage() {
           </Grid.Col>
         </Grid>
       )}
+      <InsightModal
+        opened={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalTitle}
+        data={modalData}
+      />
     </Container>
   );
 }
