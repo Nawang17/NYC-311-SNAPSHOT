@@ -199,7 +199,7 @@ export default function BoroughsPage() {
         <Loader />
       ) : (
         <ScrollArea>
-          <Table striped highlightOnHover withTableBorder withColumnBorders>
+          <Table highlightOnHover withTableBorder withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Insight</Table.Th>
