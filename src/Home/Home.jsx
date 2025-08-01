@@ -26,6 +26,7 @@ import {
   IconMapPin,
 } from "@tabler/icons-react";
 import axios from "axios";
+import ComplaintMap from "../component/ComplaintMap";
 function InsightModal({ opened, onClose, title, data }) {
   return (
     <Modal
@@ -50,10 +51,11 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [borough, setBorough] = useState("ALL");
   const [limit, setLimit] = useState(3000);
-  // const [showAllComplaints, setShowAllComplaints] = useState(false);
+
   const [modalData, setModalData] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -177,181 +179,214 @@ export default function HomePage() {
           onChange={(v) => setLimit(Number(v))}
           w={220}
         />
+        {loading ? null : (
+          <Button
+            variant="outline"
+            color="blue"
+            mt={24}
+            onClick={() => setMapOpen(true)}
+          >
+            Show Map
+          </Button>
+        )}
       </Group>
 
       {loading ? (
         <Loader size="lg" color="blue" />
       ) : (
-        <Grid gutter="xl">
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Card shadow="sm" p="lg" pb="sm" withBorder radius="md">
-              <Title order={4} mb="sm" c="blue.6">
-                Complaint Types
-              </Title>
-              <List
-                spacing="sm"
-                size="sm"
-                icon={
-                  <ThemeIcon color="blue" size={20} radius="xl">
-                    <IconAlertTriangle size={14} />
-                  </ThemeIcon>
-                }
-              >
-                {complaintsToShow.map((c) => (
-                  <List.Item key={c.name}>
-                    {c.name}: <strong>{c.value.toLocaleString()}</strong>
-                  </List.Item>
-                ))}
-              </List>
-              <Button
-                variant="subtle"
-                size="xs"
-                mt="sm"
-                onClick={() =>
-                  openModal(
-                    `All Complaint Types - ${
-                      borough === "ALL" ? "Citywide" : borough
-                    }`,
-                    countByField("complaint_type")
-                  )
-                }
-              >
-                Show All Complaint Types
-              </Button>
-            </Card>
-          </Grid.Col>
+        <>
+          <Grid gutter="xl">
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Card shadow="sm" p="lg" pb="sm" withBorder radius="md">
+                <Title order={4} mb="sm" c="blue.6">
+                  Complaint Types
+                </Title>
+                <List
+                  spacing="sm"
+                  size="sm"
+                  icon={
+                    <ThemeIcon color="blue" size={20} radius="xl">
+                      <IconAlertTriangle size={14} />
+                    </ThemeIcon>
+                  }
+                >
+                  {complaintsToShow.map((c) => (
+                    <List.Item key={c.name}>
+                      {c.name}: <strong>{c.value.toLocaleString()}</strong>
+                    </List.Item>
+                  ))}
+                </List>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  mt="sm"
+                  onClick={() =>
+                    openModal(
+                      `All Complaint Types - ${
+                        borough === "ALL" ? "Citywide" : borough
+                      }`,
+                      countByField("complaint_type")
+                    )
+                  }
+                >
+                  Show All Complaint Types
+                </Button>
+              </Card>
+            </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Card shadow="sm" p="lg" withBorder radius="md">
-              <Title order={4} mb="sm" c="green.7">
-                Status Breakdown
-              </Title>
-              <List spacing="sm" size="sm">
-                {statusBreakdown.map((s) => (
-                  <List.Item key={s.name} icon={getStatusIcon(s.name)}>
-                    {s.name}: <strong>{s.value.toLocaleString()}</strong>
-                  </List.Item>
-                ))}
-              </List>
-            </Card>
-          </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Card shadow="sm" p="lg" withBorder radius="md">
+                <Title order={4} mb="sm" c="green.7">
+                  Status Breakdown
+                </Title>
+                <List spacing="sm" size="sm">
+                  {statusBreakdown.map((s) => (
+                    <List.Item key={s.name} icon={getStatusIcon(s.name)}>
+                      {s.name}: <strong>{s.value.toLocaleString()}</strong>
+                    </List.Item>
+                  ))}
+                </List>
+              </Card>
+            </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card shadow="sm" p="lg" withBorder radius="md">
-              <Title order={4} mb="sm" c="blue.6">
-                Top Agencies
-              </Title>
-              <List
-                spacing="xs"
-                size="sm"
-                icon={
-                  <ThemeIcon color="blue" size={18} radius="xl">
-                    <IconBuildingCommunity size={14} />
-                  </ThemeIcon>
-                }
-              >
-                {topAgencies.map((a) => (
-                  <List.Item key={a.name}>
-                    {a.name}: <strong>{a.value.toLocaleString()}</strong>
-                  </List.Item>
-                ))}
-              </List>
-              <Button
-                variant="subtle"
-                size="xs"
-                mt="sm"
-                onClick={() =>
-                  openModal(
-                    `All Agencies - ${
-                      borough === "ALL" ? "Citywide" : borough
-                    }`,
-                    countByField("agency_name")
-                  )
-                }
-              >
-                Show All Agencies
-              </Button>
-            </Card>
-          </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Card shadow="sm" p="lg" withBorder radius="md">
+                <Title order={4} mb="sm" c="blue.6">
+                  Top Agencies
+                </Title>
+                <List
+                  spacing="xs"
+                  size="sm"
+                  icon={
+                    <ThemeIcon color="blue" size={18} radius="xl">
+                      <IconBuildingCommunity size={14} />
+                    </ThemeIcon>
+                  }
+                >
+                  {topAgencies.map((a) => (
+                    <List.Item key={a.name}>
+                      {a.name}: <strong>{a.value.toLocaleString()}</strong>
+                    </List.Item>
+                  ))}
+                </List>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  mt="sm"
+                  onClick={() =>
+                    openModal(
+                      `All Agencies - ${
+                        borough === "ALL" ? "Citywide" : borough
+                      }`,
+                      countByField("agency_name")
+                    )
+                  }
+                >
+                  Show All Agencies
+                </Button>
+              </Card>
+            </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card shadow="sm" p="lg" withBorder radius="md">
-              <Title order={4} mb="md" c="blue.6">
-                Top Descriptors
-              </Title>
-              <List spacing="xs" size="sm">
-                {topDescriptors.map((d) => (
-                  <List.Item key={d.name}>
-                    {d.name}: <strong>{d.value.toLocaleString()}</strong>
-                  </List.Item>
-                ))}
-              </List>
-              <Button
-                variant="subtle"
-                size="xs"
-                mt="sm"
-                onClick={() =>
-                  openModal(
-                    `All Descriptors - ${
-                      borough === "ALL" ? "Citywide" : borough
-                    }`,
-                    countByField("descriptor")
-                  )
-                }
-              >
-                Show All Descriptors
-              </Button>
-            </Card>
-          </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Card shadow="sm" p="lg" withBorder radius="md">
+                <Title order={4} mb="md" c="blue.6">
+                  Top Descriptors
+                </Title>
+                <List spacing="xs" size="sm">
+                  {topDescriptors.map((d) => (
+                    <List.Item key={d.name}>
+                      {d.name}: <strong>{d.value.toLocaleString()}</strong>
+                    </List.Item>
+                  ))}
+                </List>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  mt="sm"
+                  onClick={() =>
+                    openModal(
+                      `All Descriptors - ${
+                        borough === "ALL" ? "Citywide" : borough
+                      }`,
+                      countByField("descriptor")
+                    )
+                  }
+                >
+                  Show All Descriptors
+                </Button>
+              </Card>
+            </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card shadow="sm" p="lg" pb="md" withBorder radius="md">
-              <Title order={4} mb="sm" c="blue.6">
-                Top Location Types
-              </Title>
-              <List
-                spacing="xs"
-                size="sm"
-                icon={
-                  <ThemeIcon color="blue" size={18} radius="xl">
-                    <IconMapPin size={14} />
-                  </ThemeIcon>
-                }
-              >
-                {topLocations.map((l) => (
-                  <List.Item key={l.name}>
-                    {l.name}: <strong>{l.value.toLocaleString()}</strong>
-                  </List.Item>
-                ))}
-              </List>
-              <Button
-                variant="subtle"
-                size="xs"
-                mt="sm"
-                onClick={() =>
-                  openModal(
-                    `All Location Types - ${
-                      borough === "ALL" ? "Citywide" : borough
-                    }`,
-                    countByField("location_type")
-                  )
-                }
-              >
-                Show All Locations
-              </Button>
-            </Card>
-          </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Card shadow="sm" p="lg" pb="md" withBorder radius="md">
+                <Title order={4} mb="sm" c="blue.6">
+                  Top Location Types
+                </Title>
+                <List
+                  spacing="xs"
+                  size="sm"
+                  icon={
+                    <ThemeIcon color="blue" size={18} radius="xl">
+                      <IconMapPin size={14} />
+                    </ThemeIcon>
+                  }
+                >
+                  {topLocations.map((l) => (
+                    <List.Item key={l.name}>
+                      {l.name}: <strong>{l.value.toLocaleString()}</strong>
+                    </List.Item>
+                  ))}
+                </List>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  mt="sm"
+                  onClick={() =>
+                    openModal(
+                      `All Location Types - ${
+                        borough === "ALL" ? "Citywide" : borough
+                      }`,
+                      countByField("location_type")
+                    )
+                  }
+                >
+                  Show All Locations
+                </Button>
+              </Card>
+            </Grid.Col>
 
-          <Grid.Col span={12}>
-            <Divider
-              label="Stay tuned for trend insights and maps"
-              labelPosition="center"
-              color="blue"
-              mt="lg"
-            />
-          </Grid.Col>
-        </Grid>
+            <Grid.Col span={12}>
+              <Divider
+                label="Stay tuned for more trend insights"
+                labelPosition="center"
+                color="blue"
+                mt="lg"
+              />
+            </Grid.Col>
+          </Grid>
+        </>
       )}
+      <Modal
+        opened={mapOpen}
+        onClose={() => setMapOpen(false)}
+        title={
+          borough === "ALL"
+            ? "Citywide Complaint Map"
+            : `${borough.charAt(0)}${borough
+                .slice(1)
+                .toLowerCase()} Complaint Map`
+        }
+        size="xl"
+        fullScreen={false}
+        centered
+      >
+        <Text size="xs" c="dimmed" mb="sm">
+          Showing up to 500 of the most recent complaints with location data for
+          performance reasons.
+        </Text>
+        <ComplaintMap complaints={data} borough={borough} />
+      </Modal>
+
       <InsightModal
         opened={modalOpen}
         onClose={() => setModalOpen(false)}
