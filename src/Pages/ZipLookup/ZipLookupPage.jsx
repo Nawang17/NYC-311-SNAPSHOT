@@ -9,11 +9,15 @@ import {
   Divider,
   Select,
   Pagination,
+  Modal,
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
 export default function ZipLookupPage() {
   const [zip, setZip] = useState("");
@@ -24,6 +28,29 @@ export default function ZipLookupPage() {
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
   const topRef = useRef(null);
+  const icon = new L.Icon({
+    iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+  const getAverageLatLng = (data) => {
+    const validCoords = data
+      .map((item) => ({
+        lat: parseFloat(item.latitude),
+        lon: parseFloat(item.longitude),
+      }))
+      .filter((coord) => !isNaN(coord.lat) && !isNaN(coord.lon));
+
+    if (validCoords.length === 0) return [40.7128, -74.006]; // default to NYC
+
+    const avgLat =
+      validCoords.reduce((sum, item) => sum + item.lat, 0) / validCoords.length;
+    const avgLon =
+      validCoords.reduce((sum, item) => sum + item.lon, 0) / validCoords.length;
+
+    return [avgLat, avgLon];
+  };
+
   useEffect(() => {
     if (topRef.current) {
       topRef.current.scrollIntoView({ behavior: "smooth" });
@@ -57,6 +84,7 @@ export default function ZipLookupPage() {
   const endIdx = startIdx + itemsPerPage;
   const paginatedResults = results.slice(startIdx, endIdx);
   const totalPages = Math.ceil(results.length / itemsPerPage);
+  const [mapOpen, setMapOpen] = useState(false);
 
   return (
     <>
@@ -110,6 +138,18 @@ export default function ZipLookupPage() {
             </Text>
           )}
         </Stack>
+        {results.length > 0 && (
+          <Button
+            variant="light"
+            onClick={() => setMapOpen(true)}
+            color="blue"
+            size="xs"
+            mb="sm"
+            style={{ alignSelf: "flex-start" }}
+          >
+            Show Map
+          </Button>
+        )}
 
         {results.length > 0 && (
           <Stack>
@@ -143,6 +183,40 @@ export default function ZipLookupPage() {
             )}
           </Stack>
         )}
+        <Modal
+          opened={mapOpen}
+          onClose={() => setMapOpen(false)}
+          title={`311 Complaints Map for ${zip} - ${results.length} records`}
+          size="xl"
+          centered
+        >
+          <MapContainer
+            center={getAverageLatLng(results)}
+            zoom={14}
+            style={{ height: "500px", width: "100%", zIndex: 0 }}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+            {results.map((item, idx) => {
+              const lat = parseFloat(item.latitude);
+              const lon = parseFloat(item.longitude);
+              if (!lat || !lon) return null;
+              return (
+                <Marker key={idx} position={[lat, lon]} icon={icon}>
+                  <Popup>
+                    <Text fw={600}>{item.complaint_type}</Text>
+                    <Text size="xs">{item.descriptor || "No description"}</Text>
+                    <Text size="xs" c="gray">
+                      {item.created_date?.split("T")[0]}
+                    </Text>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+        </Modal>
       </Container>
     </>
   );
