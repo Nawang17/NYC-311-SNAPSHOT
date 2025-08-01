@@ -193,7 +193,7 @@ export default function ZipLookupPage() {
         >
           <MapContainer
             center={getAverageLatLng(results)}
-            zoom={14}
+            zoom={13}
             style={{ height: "500px", width: "100%", zIndex: 0 }}
           >
             <TileLayer
