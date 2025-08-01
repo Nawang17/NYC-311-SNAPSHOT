@@ -3,20 +3,15 @@ import {
   Title,
   Select,
   Loader,
-  Card,
-  Stack,
-  Grid,
+  Table,
   Text,
-  ThemeIcon,
   Group,
-  Divider,
-  Badge,
+  Button,
+  ScrollArea,
+  Stack,
+  Card,
 } from "@mantine/core";
-import {
-  IconBuildingCommunity,
-  IconActivity,
-  IconScale,
-} from "@tabler/icons-react";
+import { IconGitCompare } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -24,9 +19,13 @@ export default function BoroughsPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [borough, setBorough] = useState("MANHATTAN");
-  const [allBoroughsData, setAllBoroughsData] = useState({});
+  const [compareBorough, setCompareBorough] = useState(null);
+  const [compareData, setCompareData] = useState([]);
+  const [limit, setLimit] = useState("1000");
+  const [showComparison, setShowComparison] = useState(false);
+  const [showCompareSelect, setShowCompareSelect] = useState(false);
 
-  const boroughs = [
+  const boroughOptions = [
     "MANHATTAN",
     "BRONX",
     "BROOKLYN",
@@ -38,18 +37,19 @@ export default function BoroughsPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const boroughPromises = boroughs.map((b) =>
-          axios.get(
-            `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=1000&$order=created_date DESC&borough=${b}`
-          )
+        const response = await axios.get(
+          `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&borough=${borough}`
         );
-        const responses = await Promise.all(boroughPromises);
-        const dataMap = {};
-        responses.forEach((res, i) => {
-          dataMap[boroughs[i]] = res.data;
-        });
-        setAllBoroughsData(dataMap);
-        setData(dataMap[borough]);
+        setData(response.data);
+
+        if (compareBorough && showComparison) {
+          const compareResponse = await axios.get(
+            `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&borough=${compareBorough}`
+          );
+          setCompareData(compareResponse.data);
+        } else {
+          setCompareData([]);
+        }
       } catch (err) {
         console.error("Error fetching borough data:", err);
       } finally {
@@ -57,118 +57,189 @@ export default function BoroughsPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [borough, compareBorough, limit, showComparison]);
 
-  useEffect(() => {
-    if (allBoroughsData[borough]) {
-      setData(allBoroughsData[borough]);
-    }
-  }, [borough, allBoroughsData]);
-
-  const countByField = (dataArr, field) => {
-    const counts = {};
-    dataArr.forEach((item) => {
+  const countByField = (field, dataset, topN = 5) => {
+    const counts = dataset.reduce((acc, item) => {
       const key = item[field] || "Unknown";
-      counts[key] = (counts[key] || 0) + 1;
-    });
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .slice(0, topN);
   };
 
-  const topTypes = countByField(data, "complaint_type");
-  const topAgencies = countByField(data, "agency_name");
+  // const formatItems = (items) => (
+  //   <Stack gap="xs">
+  //     {items.map((item) => (
+  //       <Text key={item.name} size="sm">
+  //         {item.name}:{" "}
+  //         <Text span fw={500}>
+  //           {item.value.toLocaleString()}
+  //         </Text>
+  //       </Text>
+  //     ))}
+  //   </Stack>
+  // );
 
-  const mostActiveBorough = Object.entries(allBoroughsData).reduce(
-    (max, [b, arr]) =>
-      arr.length > max.count ? { name: b, count: arr.length } : max,
-    { name: "N/A", count: 0 }
-  );
+  const insights = [
+    {
+      label: "Top Complaint Types",
+      data: countByField("complaint_type", data, 5),
+      compareData: countByField("complaint_type", compareData, 5),
+    },
+    {
+      label: "Top Agencies",
+      data: countByField("agency_name", data, 5),
+      compareData: countByField("agency_name", compareData, 5),
+    },
+    {
+      label: "Top ZIP Codes",
+      data: countByField("incident_zip", data, 5),
+      compareData: countByField("incident_zip", compareData, 5),
+    },
+    {
+      label: "Top Descriptors",
+      data: countByField("descriptor", data, 5),
+      compareData: countByField("descriptor", compareData, 5),
+    },
+    {
+      label: "Status Breakdown",
+      data: countByField("status", data, 5),
+      compareData: countByField("status", compareData, 5),
+    },
+    {
+      label: "Top Resolutions",
+      data: countByField("resolution_description", data, 5),
+      compareData: countByField("resolution_description", compareData, 5),
+    },
+  ];
+
+  const handleCompareClick = () => {
+    setShowCompareSelect(true);
+  };
 
   return (
     <Container size="xl" py="xl">
-      <Title order={2} c="blue.7" mb="sm">
-        🏙 Borough Breakdown
-      </Title>
-      <Text c="dimmed" size="sm" mb="md">
-        Compare complaint trends across NYC boroughs.
-      </Text>
-
-      <Select
-        label="Select a borough"
-        value={borough}
-        onChange={setBorough}
-        data={boroughs}
-        mb="lg"
-        maw={300}
-      />
-
-      <Divider
-        label={`Most active borough: ${mostActiveBorough.name} (${mostActiveBorough.count})`}
+      <Card
+        withBorder
+        radius="md"
+        shadow="xs"
         mb="xl"
-      />
+        padding="md"
+        style={{ backgroundColor: "#f8f9fa" }}
+      >
+        <Text c="blue.8" size="sm" fw={600}>
+          Borough Insights
+        </Text>
+        <Text size="xs" pt="5px" c="gray.7">
+          Analyze complaint patterns and compare key metrics across boroughs
+        </Text>
+      </Card>
+
+      <Group mb="lg" align="flex-end">
+        <Select
+          label="Select Borough"
+          value={borough}
+          onChange={setBorough}
+          data={boroughOptions}
+          w={250}
+        />
+        <Select
+          label="Complaint Limit"
+          value={limit}
+          onChange={setLimit}
+          data={[
+            { value: "500", label: "Latest 500" },
+            { value: "1000", label: "Latest 1,000" },
+            { value: "2000", label: "Latest 2,000" },
+            { value: "3000", label: "Latest 3,000" },
+          ]}
+          w={150}
+        />
+        {!showCompareSelect && (
+          <Button
+            variant="outline"
+            color="blue"
+            onClick={handleCompareClick}
+            leftSection={<IconGitCompare size={16} />}
+          >
+            Compare with Other Borough
+          </Button>
+        )}
+        {showCompareSelect && (
+          <>
+            <Select
+              label="Compare With"
+              value={compareBorough}
+              onChange={setCompareBorough}
+              data={boroughOptions.filter((b) => b !== borough)}
+              placeholder="Select borough"
+              clearable
+              w={250}
+              disabled={loading}
+            />
+            {compareBorough && (
+              <Button
+                variant={showComparison ? "light" : "filled"}
+                color="blue"
+                onClick={() => setShowComparison(!showComparison)}
+                leftSection={<IconGitCompare size={16} />}
+              >
+                {showComparison ? "Hide Comparison" : "Show Comparison"}
+              </Button>
+            )}
+          </>
+        )}
+      </Group>
 
       {loading ? (
-        <Loader />
+        <Loader type="bars" />
       ) : (
-        <Grid gutter="lg">
-          <Grid.Col span={{ base: 12, sm: 6 }}>
-            <Card withBorder shadow="sm" radius="md" padding="md">
-              <Group mb="xs">
-                <ThemeIcon variant="light" color="blue">
-                  <IconActivity size={16} />
-                </ThemeIcon>
-                <Text fw={500}>Top Complaint Types in {borough}</Text>
-              </Group>
-              <Stack>
-                {topTypes.map((item) => (
-                  <Text key={item.name} size="sm">
-                    {item.name}: {item.value.toLocaleString()}
-                  </Text>
-                ))}
-              </Stack>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, sm: 6 }}>
-            <Card withBorder shadow="sm" radius="md" padding="md">
-              <Group mb="xs">
-                <ThemeIcon variant="light" color="blue">
-                  <IconBuildingCommunity size={16} />
-                </ThemeIcon>
-                <Text fw={500}>Top Agencies in {borough}</Text>
-              </Group>
-              <Stack>
-                {topAgencies.map((item) => (
-                  <Text key={item.name} size="sm">
-                    {item.name}: {item.value.toLocaleString()}
-                  </Text>
-                ))}
-              </Stack>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={12}>
-            <Card withBorder shadow="sm" radius="md" padding="md">
-              <Group mb="xs">
-                <ThemeIcon variant="light" color="blue">
-                  <IconScale size={16} />
-                </ThemeIcon>
-                <Text fw={500}>Complaint Volume by Borough</Text>
-              </Group>
-              <Stack>
-                {Object.entries(allBoroughsData)
-                  .sort((a, b) => b[1].length - a[1].length)
-                  .map(([b, arr]) => (
-                    <Text key={b} size="sm">
-                      {b}: {arr.length.toLocaleString()} complaints
-                    </Text>
+        <ScrollArea>
+          <Table striped highlightOnHover withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Insight</Table.Th>
+                <Table.Th>{borough}</Table.Th>
+                {showComparison && compareBorough && (
+                  <Table.Th>{compareBorough}</Table.Th>
+                )}
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {insights.map((insight) => (
+                <>
+                  <Table.Tr key={insight.label}>
+                    <Table.Td colSpan={3}>
+                      <Text fw={700} size="sm" c="blue">
+                        {insight.label}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                  {(insight.data.length > 0
+                    ? insight.data
+                    : [{ name: "None", value: 0 }]
+                  ).map((item, idx) => (
+                    <Table.Tr key={`${insight.label}-${item.name}`}>
+                      <Table.Td>{item.name || "Unknown"}</Table.Td>
+                      <Table.Td>{item.value.toLocaleString()}</Table.Td>
+                      {showComparison && compareBorough && (
+                        <Table.Td>
+                          {insight.compareData[idx]
+                            ? insight.compareData[idx].value.toLocaleString()
+                            : "—"}
+                        </Table.Td>
+                      )}
+                    </Table.Tr>
                   ))}
-              </Stack>
-            </Card>
-          </Grid.Col>
-        </Grid>
+                </>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
       )}
     </Container>
   );

@@ -20,14 +20,20 @@ export default function AppHeader() {
       route: "/zip-lookup",
       icon: <IconMapPin size={16} />,
     },
+    {
+      label: "Boroughs",
+      route: "/boroughs",
+      icon: <IconBuildingCommunity size={16} />,
+    },
     { label: "Map", route: "/map", icon: <IconMap2 size={16} /> },
+
+    // { label: "Trends", route: "/trends", icon: <IconTrendingUp size={16} /> },
+
     {
       label: "About",
       route: "/about",
       icon: <IconInfoCircle size={16} />,
     },
-    // { label: "Trends", route: "/trends", icon: <IconTrendingUp size={16} /> },
-    // { label: "Boroughs", route: "/boroughs", icon: <IconBuildingCommunity size={16} /> },
   ];
 
   return (
