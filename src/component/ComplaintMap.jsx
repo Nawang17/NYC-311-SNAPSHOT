@@ -12,7 +12,7 @@ const markerIcon = new Icon({
 export default function ComplaintMap({ complaints, borough }) {
   const validComplaints = complaints
     .filter((c) => c.latitude && c.longitude)
-    .slice(0, 800); // Limit to 500 complaints for performance
+    .slice(0, 500); // Limit to 500 complaints for performance
 
   const boroughCenterMap = {
     MANHATTAN: [40.7831, -73.9712],
