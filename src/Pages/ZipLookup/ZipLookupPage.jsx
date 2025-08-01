@@ -24,7 +24,7 @@ export default function ZipLookupPage() {
   const [error, setError] = useState(null);
   const [limit, setLimit] = useState("1000");
   const [page, setPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 10;
 
   const handleSearch = async () => {
     if (!zip.match(/^\d{5}$/)) {

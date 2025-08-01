@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import { MantineProvider } from "@mantine/core";
 import ZipLookupPage from "./Pages/ZipLookup/ZipLookupPage.jsx";
 import Header from "./component/Header.jsx";
+import TrendsPage from "./Pages/Trends/TrendsPage.jsx";
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/zip-lookup" element={<ZipLookupPage />} />
+          <Route path="/trends" element={<TrendsPage />} />
         </Routes>
       </MantineProvider>
     </BrowserRouter>
