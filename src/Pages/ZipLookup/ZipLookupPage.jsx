@@ -24,7 +24,7 @@ export default function ZipLookupPage() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [limit, setLimit] = useState("1000");
+  const [limit, setLimit] = useState("500");
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
   const topRef = useRef(null);
@@ -116,6 +116,7 @@ export default function ZipLookupPage() {
           <Select
             label="Number of Records"
             data={[
+              { value: "500", label: "Latest 500" },
               { value: "1000", label: "Latest 1,000" },
               { value: "2000", label: "Latest 2,000" },
               { value: "3000", label: "Latest 3,000" },
@@ -207,9 +208,12 @@ export default function ZipLookupPage() {
                 <Marker key={idx} position={[lat, lon]} icon={icon}>
                   <Popup>
                     <Text fw={600}>{item.complaint_type}</Text>
-                    <Text size="xs">{item.descriptor || "No description"}</Text>
+                    <Text size="sm">{item.descriptor}</Text>
                     <Text size="xs" c="gray">
-                      {item.created_date?.split("T")[0]}
+                      {item.borough} · {item.created_date?.split("T")[0]}
+                    </Text>
+                    <Text size="xs" c="blue.6" mt={4}>
+                      Status: {item.status || "Unknown"}
                     </Text>
                   </Popup>
                 </Marker>
