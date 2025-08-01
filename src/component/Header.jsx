@@ -1,16 +1,27 @@
 import { Button, Group, Title, Flex } from "@mantine/core";
 import { useNavigate, useLocation } from "react-router";
+import {
+  IconHome,
+  IconMapPin,
+  IconMap2,
+  IconTrendingUp,
+  IconBuildingCommunity,
+} from "@tabler/icons-react";
 
 export default function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const navButtons = [
-    { label: "Home", route: "/" },
-    { label: "Map", route: "/map" },
-    { label: "ZIP Lookup", route: "/zip-lookup" },
-    { label: "Trends", route: "/trends" },
-    { label: "Boroughs", route: "/boroughs" },
+    { label: "Home", route: "/", icon: <IconHome size={16} /> },
+    {
+      label: "ZIP Lookup",
+      route: "/zip-lookup",
+      icon: <IconMapPin size={16} />,
+    },
+    { label: "Map", route: "/map", icon: <IconMap2 size={16} /> },
+    // { label: "Trends", route: "/trends", icon: <IconTrendingUp size={16} /> },
+    // { label: "Boroughs", route: "/boroughs", icon: <IconBuildingCommunity size={16} /> },
   ];
 
   return (
@@ -38,12 +49,13 @@ export default function AppHeader() {
           </Title>
 
           <Group spacing="xs" mt={{ base: "md", sm: 0 }}>
-            {navButtons.map(({ label, route }) => (
+            {navButtons.map(({ label, route, icon }) => (
               <Button
                 key={route}
                 variant={location.pathname === route ? "filled" : "light"}
                 color="blue"
                 size="xs"
+                leftSection={icon}
                 onClick={() => navigate(route)}
               >
                 {label}

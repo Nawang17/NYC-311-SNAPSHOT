@@ -1,12 +1,20 @@
-# React + Vite
+# NYC 311 Snapshot
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern civic data dashboard that visualizes recent 311 complaints across New York City. Built using React, Mantine, Leaflet, and data from [NYC Open Data](https://data.cityofnewyork.us/Public-Safety/311-Service-Requests-from-2010-to-Present/erm2-nwe9).
 
-Currently, two official plugins are available:
+🔗 **Live Website:** [https://nyc-311-snapshot.netlify.app](https://nyc-311-snapshot.netlify.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## Expanding the ESLint configuration
+- 🌆 Citywide and borough-specific 311 complaint visualization
+- 🗺 Interactive map with complaint pins and details
+- 🔎 ZIP code search to explore localized complaint data
+- 📊 Top complaint types and agencies per borough
+- ⚙️ Filter controls for data limit and borough selection
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠 Tech Stack
+
+- **React** – front-end framework
+- **Mantine** – component library for styling
+- **React Leaflet** – map rendering
+- **NYC Open Data API** – public 311 complaint dataset

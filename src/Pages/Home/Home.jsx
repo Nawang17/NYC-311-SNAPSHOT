@@ -10,18 +10,15 @@ import {
   ThemeIcon,
   Flex,
 } from "@mantine/core";
-import { useNavigate } from "react-router";
 import { IconMapPin, IconTrendingUp } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
 export default function HomePage() {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
       try {
         const response = await axios.get(
           "https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=3000&$order=created_date DESC"
@@ -29,8 +26,6 @@ export default function HomePage() {
         setData(response.data);
       } catch (error) {
         console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
       }
     };
     fetchData();
@@ -151,9 +146,9 @@ export default function HomePage() {
         </Grid.Col>
       </Grid>
 
-      <Text c="dimmed" size="xs" mt="xl" ta="center">
+      {/* <Text c="dimmed" size="xs" mt="xl" ta="center">
         Powered by NYC Open Data
-      </Text>
+      </Text> */}
     </Container>
   );
 }

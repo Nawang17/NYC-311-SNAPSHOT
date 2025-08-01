@@ -58,18 +58,21 @@ export default function ZipLookupPage() {
   return (
     <>
       <Container size="xl" py="xl">
-        <Group align="center" mb="sm">
-          <ThemeIcon color="blue" variant="light" size="lg">
-            <IconMapPin size={20} />
-          </ThemeIcon>
-          <Title order={2} c="blue.7">
+        <Card
+          withBorder
+          radius="md"
+          shadow="xs"
+          mb="xl"
+          padding="md"
+          style={{ backgroundColor: "#f8f9fa" }}
+        >
+          <Text c="blue.8" size="sm" fw={600}>
             ZIP Code Lookup
-          </Title>
-        </Group>
-        <Text size="sm" c="dimmed" mb="md">
-          Enter a NYC ZIP code to explore recent 311 complaints in that area.
-        </Text>
-
+          </Text>
+          <Text size="xs" pt="5px" c="gray.7">
+            Enter a NYC ZIP code to explore recent 311 complaints in that area.
+          </Text>
+        </Card>
         <Stack mb="xl">
           <TextInput
             label="ZIP Code"
