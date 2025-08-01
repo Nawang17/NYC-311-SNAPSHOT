@@ -21,7 +21,7 @@ export default function BoroughsPage() {
   const [borough, setBorough] = useState("MANHATTAN");
   const [compareBorough, setCompareBorough] = useState(null);
   const [compareData, setCompareData] = useState([]);
-  const [limit, setLimit] = useState("1000");
+  const [limit, setLimit] = useState("500");
   const [showComparison, setShowComparison] = useState(false);
   const [showCompareSelect, setShowCompareSelect] = useState(false);
 
@@ -70,19 +70,6 @@ export default function BoroughsPage() {
       .sort((a, b) => b.value - a.value)
       .slice(0, topN);
   };
-
-  // const formatItems = (items) => (
-  //   <Stack gap="xs">
-  //     {items.map((item) => (
-  //       <Text key={item.name} size="sm">
-  //         {item.name}:{" "}
-  //         <Text span fw={500}>
-  //           {item.value.toLocaleString()}
-  //         </Text>
-  //       </Text>
-  //     ))}
-  //   </Stack>
-  // );
 
   const insights = [
     {
@@ -156,6 +143,12 @@ export default function BoroughsPage() {
             { value: "1000", label: "Latest 1,000" },
             { value: "2000", label: "Latest 2,000" },
             { value: "3000", label: "Latest 3,000" },
+            { value: "5000", label: "Latest 5,000" },
+            { value: "10000", label: "Latest 10,000" },
+
+            { value: "20000", label: "Latest 20,000" },
+
+            { value: "30000", label: "Latest 30,000" },
           ]}
           w={150}
         />
