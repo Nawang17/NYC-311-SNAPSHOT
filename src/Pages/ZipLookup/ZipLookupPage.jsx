@@ -168,9 +168,12 @@ export default function ZipLookupPage() {
                   {item.descriptor || "No description"} ·{" "}
                   {item.created_date?.split("T")[0]}
                 </Text>
-                <Text size="xs" c="gray.6">
+                <Text size="xs" c="gray.6" mb={4}>
                   Agency: {item.agency_name || "N/A"} · Borough:{" "}
                   {item.borough || "N/A"}
+                </Text>
+                <Text size="xs" c="blue.7" fw={500}>
+                  Status: {item.status || "Unknown"}
                 </Text>
               </Card>
             ))}
