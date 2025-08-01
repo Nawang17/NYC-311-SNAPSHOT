@@ -1,21 +1,19 @@
 import {
   Container,
-  Title,
   Text,
   TextInput,
   Button,
   Card,
   Stack,
   Loader,
-  Group,
   Divider,
-  ThemeIcon,
   Select,
   Pagination,
 } from "@mantine/core";
-import { IconMapPin, IconSearch } from "@tabler/icons-react";
-import { useState } from "react";
+import { IconSearch } from "@tabler/icons-react";
+import { useState, useEffect } from "react";
 import axios from "axios";
+import { useRef } from "react";
 
 export default function ZipLookupPage() {
   const [zip, setZip] = useState("");
@@ -25,7 +23,12 @@ export default function ZipLookupPage() {
   const [limit, setLimit] = useState("1000");
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
-
+  const topRef = useRef(null);
+  useEffect(() => {
+    if (topRef.current) {
+      topRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [page]);
   const handleSearch = async () => {
     if (!zip.match(/^\d{5}$/)) {
       setError("Please enter a valid 5-digit ZIP code.");
@@ -57,7 +60,7 @@ export default function ZipLookupPage() {
 
   return (
     <>
-      <Container size="xl" py="xl">
+      <Container size="xl" py="xl" ref={topRef}>
         <Card
           withBorder
           radius="md"
@@ -76,7 +79,7 @@ export default function ZipLookupPage() {
         <Stack mb="xl">
           <TextInput
             label="ZIP Code"
-            placeholder="e.g. 10027"
+            placeholder="e.g. 11372"
             value={zip}
             onChange={(e) => setZip(e.target.value)}
             maxLength={5}
