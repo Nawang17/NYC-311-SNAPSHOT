@@ -21,7 +21,7 @@ export default function HomePage() {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          "https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=3000&$order=created_date DESC"
+          "https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=10000&$order=created_date DESC"
         );
         setData(response.data);
       } catch (error) {
@@ -61,7 +61,7 @@ export default function HomePage() {
           What are New Yorkers reporting right now?
         </Text>
         <Text size="xs" pt="5px" c="gray.7">
-          These insights are based on the latest <strong>3,000</strong> 311
+          These insights are based on the latest <strong>10,000</strong> 311
           service requests across the five boroughs.
         </Text>
       </Card>

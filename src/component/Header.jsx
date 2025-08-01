@@ -6,6 +6,7 @@ import {
   IconMap2,
   IconTrendingUp,
   IconBuildingCommunity,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 
 export default function AppHeader() {
@@ -20,6 +21,11 @@ export default function AppHeader() {
       icon: <IconMapPin size={16} />,
     },
     { label: "Map", route: "/map", icon: <IconMap2 size={16} /> },
+    {
+      label: "About",
+      route: "/about",
+      icon: <IconInfoCircle size={16} />,
+    },
     // { label: "Trends", route: "/trends", icon: <IconTrendingUp size={16} /> },
     // { label: "Boroughs", route: "/boroughs", icon: <IconBuildingCommunity size={16} /> },
   ];
