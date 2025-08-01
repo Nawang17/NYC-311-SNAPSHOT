@@ -196,7 +196,7 @@ export default function BoroughsPage() {
       </Group>
 
       {loading ? (
-        <Loader type="bars" />
+        <Loader />
       ) : (
         <ScrollArea>
           <Table striped highlightOnHover withTableBorder withColumnBorders>

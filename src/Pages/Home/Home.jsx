@@ -145,10 +145,6 @@ export default function HomePage() {
           </Card>
         </Grid.Col>
       </Grid>
-
-      {/* <Text c="dimmed" size="xs" mt="xl" ta="center">
-        Powered by NYC Open Data
-      </Text> */}
     </Container>
   );
 }
