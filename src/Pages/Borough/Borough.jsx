@@ -102,6 +102,11 @@ export default function BoroughsPage() {
     }, {});
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
+      .filter((item) =>
+        field === "resolution_description"
+          ? item.name !== "Unknown" && item.name !== "N/A"
+          : true
+      )
       .sort((a, b) => b.value - a.value)
       .slice(0, topN);
   };
@@ -171,61 +176,61 @@ export default function BoroughsPage() {
         />
       </Group>
 
-      <Card
-        withBorder
-        shadow="xs"
-        radius="md"
-        p="lg"
-        mb="xl"
-        style={{ background: "#fffdf5" }}
-      >
-        <Group align="center" spacing="xs" mb="sm">
-          <ThemeIcon variant="light" color="orange" radius="xl">
-            <IconTrophy size={18} />
-          </ThemeIcon>
-          <Title order={4} c="orange.9">
-            {borough} Complaint Snapshot
-          </Title>
-        </Group>
-        <Stack spacing="xs">
-          <Group spacing="xs">
-            <ThemeIcon color="red" variant="light" radius="xl">
-              <IconAlertTriangle size={16} />
-            </ThemeIcon>
-            <Text size="sm">
-              Most reported issue:{" "}
-              <strong>{topComplaint?.name || "Noise"}</strong>
-            </Text>
-          </Group>
-          <Group spacing="xs">
-            <ThemeIcon color="teal" variant="light" radius="xl">
-              <IconLocation size={16} />
-            </ThemeIcon>
-            <Text size="sm">
-              Busiest ZIP: <strong>{busiestZip?.name}</strong> with{" "}
-              <strong>{busiestZip?.value.toLocaleString()}</strong> complaints
-            </Text>
-          </Group>
-          <Group spacing="xs">
-            <ThemeIcon color="gray" variant="light" radius="xl">
-              <IconSearch size={16} />
-            </ThemeIcon>
-            <Text size="sm">
-              Recent descriptor: <strong>{randomDescriptor}</strong>
-            </Text>
-          </Group>
-          <Divider my="sm" />
-          <Text size="sm" c="gray.7">
-            Total: <strong>{data.length.toLocaleString()}</strong> complaints{" "}
-            {range.toLocaleLowerCase()}
-          </Text>
-        </Stack>
-      </Card>
-
       {loading ? (
         <Loader />
       ) : (
         <>
+          <Card
+            withBorder
+            shadow="xs"
+            radius="md"
+            p="lg"
+            mb="xl"
+            style={{ background: "#fffdf5" }}
+          >
+            <Group align="center" spacing="xs" mb="sm">
+              <ThemeIcon variant="light" color="orange" radius="xl">
+                <IconTrophy size={18} />
+              </ThemeIcon>
+              <Title order={4} c="orange.9">
+                {borough} Complaint Snapshot
+              </Title>
+            </Group>
+            <Stack spacing="xs">
+              <Group spacing="xs">
+                <ThemeIcon color="red" variant="light" radius="xl">
+                  <IconAlertTriangle size={16} />
+                </ThemeIcon>
+                <Text size="sm">
+                  Most reported issue:{" "}
+                  <strong>{topComplaint?.name || "Noise"}</strong>
+                </Text>
+              </Group>
+              <Group spacing="xs">
+                <ThemeIcon color="teal" variant="light" radius="xl">
+                  <IconLocation size={16} />
+                </ThemeIcon>
+                <Text size="sm">
+                  Busiest ZIP: <strong>{busiestZip?.name}</strong> with{" "}
+                  <strong>{busiestZip?.value.toLocaleString()}</strong>{" "}
+                  complaints
+                </Text>
+              </Group>
+              <Group spacing="xs">
+                <ThemeIcon color="gray" variant="light" radius="xl">
+                  <IconSearch size={16} />
+                </ThemeIcon>
+                <Text size="sm">
+                  Recent descriptor: <strong>{randomDescriptor}</strong>
+                </Text>
+              </Group>
+              <Divider my="sm" />
+              <Text size="sm" c="gray.7">
+                Total: <strong>{data.length.toLocaleString()}</strong>{" "}
+                complaints in <strong>{borough}</strong> ({range})
+              </Text>
+            </Stack>
+          </Card>
           <Title order={4} mb="sm">
             Detailed Breakdown
           </Title>
@@ -237,6 +242,9 @@ export default function BoroughsPage() {
                 radius="md"
                 withBorder
                 padding="md"
+                // style={{
+                //   backgroundColor: `var(--mantine-color-${insight.color}-0)`,
+                // }}
               >
                 <Group mb="sm">
                   <ThemeIcon variant="light" color={insight.color} radius="xl">
@@ -250,7 +258,7 @@ export default function BoroughsPage() {
                   {insight.data.map((item) => (
                     <Stack key={item.name} spacing={2}>
                       <Text size="sm" c="gray.6" lh={1.3}>
-                        {item.name || "Unknown"}
+                        {item.name}
                       </Text>
                       <Text fw={800} size="lg" c={`${insight.color}.9`}>
                         {item.value.toLocaleString()}

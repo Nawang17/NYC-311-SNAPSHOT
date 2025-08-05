@@ -15,15 +15,16 @@ export default function AppHeader() {
 
   const navButtons = [
     { label: "Home", route: "/", icon: <IconHome size={16} /> },
-    {
-      label: "ZIP Lookup",
-      route: "/zip-lookup",
-      icon: <IconMapPin size={16} />,
-    },
+
     {
       label: "Boroughs",
       route: "/boroughs",
       icon: <IconBuildingCommunity size={16} />,
+    },
+    {
+      label: "ZIP Lookup",
+      route: "/zip-lookup",
+      icon: <IconMapPin size={16} />,
     },
     { label: "Map", route: "/map", icon: <IconMap2 size={16} /> },
 
