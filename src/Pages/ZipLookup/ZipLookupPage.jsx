@@ -9,15 +9,12 @@ import {
   Divider,
   Select,
   Pagination,
-  Modal,
+  Tooltip,
 } from "@mantine/core";
-import { IconSearch } from "@tabler/icons-react";
-import { useState, useEffect } from "react";
+import { IconSearch, IconMapPin } from "@tabler/icons-react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import MapModal from "./MapModal";
 
 export default function ZipLookupPage() {
   const [zip, setZip] = useState("");
@@ -26,36 +23,10 @@ export default function ZipLookupPage() {
   const [error, setError] = useState(null);
   const [limit, setLimit] = useState("500");
   const [page, setPage] = useState(1);
+  const [mapOpen, setMapOpen] = useState(false);
   const itemsPerPage = 10;
   const topRef = useRef(null);
-  const icon = new L.Icon({
-    iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-  });
-  const getAverageLatLng = (data) => {
-    const validCoords = data
-      .map((item) => ({
-        lat: parseFloat(item.latitude),
-        lon: parseFloat(item.longitude),
-      }))
-      .filter((coord) => !isNaN(coord.lat) && !isNaN(coord.lon));
 
-    if (validCoords.length === 0) return [40.7128, -74.006]; // default to NYC
-
-    const avgLat =
-      validCoords.reduce((sum, item) => sum + item.lat, 0) / validCoords.length;
-    const avgLon =
-      validCoords.reduce((sum, item) => sum + item.lon, 0) / validCoords.length;
-
-    return [avgLat, avgLon];
-  };
-
-  useEffect(() => {
-    if (topRef.current) {
-      topRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [page]);
   const handleSearch = async () => {
     if (!zip.match(/^\d{5}$/)) {
       setError("Please enter a valid 5-digit ZIP code.");
@@ -74,91 +45,130 @@ export default function ZipLookupPage() {
         setError("No complaints found for this ZIP code.");
       }
     } catch (err) {
-      setError("Failed to fetch data. Try again later." + err.message);
+      const msg = err.response
+        ? `Error ${err.response.status}: ${err.response.statusText}`
+        : "Failed to fetch data. Try again later.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  useEffect(() => {
+    if (topRef.current) {
+      topRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [page]);
+
   const startIdx = (page - 1) * itemsPerPage;
-  const endIdx = startIdx + itemsPerPage;
-  const paginatedResults = results.slice(startIdx, endIdx);
+  const paginatedResults = results.slice(startIdx, startIdx + itemsPerPage);
   const totalPages = Math.ceil(results.length / itemsPerPage);
-  const [mapOpen, setMapOpen] = useState(false);
+
+  const boroughSummary = results.reduce((acc, item) => {
+    if (item.borough) acc[item.borough] = (acc[item.borough] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
-    <>
-      <Container size="xl" py="xl" ref={topRef}>
-        <Card
-          withBorder
-          radius="md"
-          shadow="xs"
-          mb="xl"
-          padding="md"
-          style={{ backgroundColor: "#f8f9fa" }}
+    <Container size="xl" py="xl" ref={topRef}>
+      <Card
+        withBorder
+        radius="md"
+        shadow="xs"
+        mb="xl"
+        padding="md"
+        bg="#f8f9fa"
+      >
+        <Text c="blue.8" size="sm" fw={600}>
+          ZIP Code Lookup
+        </Text>
+        <Text size="xs" pt={4} c="gray.7">
+          Enter a NYC ZIP code to explore recent 311 complaints in that area.
+        </Text>
+      </Card>
+
+      <Stack mb="xl">
+        <Tooltip
+          label="Must be 5-digit NYC ZIP code"
+          position="right"
+          withArrow
         >
-          <Text c="blue.8" size="sm" fw={600}>
-            ZIP Code Lookup
-          </Text>
-          <Text size="xs" pt="5px" c="gray.7">
-            Enter a NYC ZIP code to explore recent 311 complaints in that area.
-          </Text>
-        </Card>
-        <Stack mb="xl">
           <TextInput
             label="ZIP Code"
             placeholder="e.g. 11372"
             value={zip}
             onChange={(e) => setZip(e.target.value)}
+            onKeyDown={handleKeyDown}
             maxLength={5}
             radius="md"
           />
-          <Select
-            label="Number of Records"
-            data={[
-              { value: "500", label: "Latest 500" },
-              { value: "1000", label: "Latest 1,000" },
-              { value: "2000", label: "Latest 2,000" },
-              { value: "3000", label: "Latest 3,000" },
-            ]}
-            value={limit}
-            onChange={setLimit}
-            radius="md"
-          />
-          <Button
-            leftSection={<IconSearch size={16} />}
-            onClick={handleSearch}
-            disabled={loading || !zip}
-            color="blue"
-          >
-            {loading ? <Loader size="xs" /> : "Search"}
-          </Button>
-          {error && (
-            <Text c="red" size="xs">
-              {error}
+        </Tooltip>
+
+        <Select
+          label="Number of Records"
+          data={[
+            { value: "500", label: "Latest 500" },
+            { value: "1000", label: "Latest 1,000" },
+            { value: "2000", label: "Latest 2,000" },
+            { value: "3000", label: "Latest 3,000" },
+          ]}
+          value={limit}
+          onChange={setLimit}
+          radius="md"
+        />
+
+        <Button
+          leftSection={<IconSearch size={16} />}
+          onClick={handleSearch}
+          disabled={loading || !zip}
+          color="blue"
+        >
+          {loading ? <Loader size="xs" /> : "Search"}
+        </Button>
+        {error && (
+          <Text c="red" size="xs">
+            {error}
+          </Text>
+        )}
+      </Stack>
+
+      {Object.keys(boroughSummary).length > 0 && (
+        <Card shadow="xs" radius="md" mb="sm" p="sm">
+          <Text size="xs" fw={500} mb={4}>
+            Borough Summary
+          </Text>
+          {Object.entries(boroughSummary).map(([b, count]) => (
+            <Text size="xs" key={b}>
+              {b}: {count}
             </Text>
-          )}
-        </Stack>
-        {results.length > 0 && (
+          ))}
+        </Card>
+      )}
+
+      {results.length > 0 && (
+        <>
           <Button
             variant="light"
             onClick={() => setMapOpen(true)}
             color="blue"
             size="xs"
             mb="sm"
-            style={{ alignSelf: "flex-start" }}
+            leftSection={<IconMapPin size={14} />}
           >
             Show Map
           </Button>
-        )}
 
-        {results.length > 0 && (
+          <Divider
+            label={`Found ${results.length} complaints in ${zip}`}
+            labelPosition="center"
+            mb="md"
+          />
+
           <Stack>
-            <Divider
-              label={`Found ${results.length} complaints in ${zip}`}
-              labelPosition="center"
-              mb="md"
-            />
             {paginatedResults.map((item, index) => (
               <Card key={index} withBorder shadow="sm" padding="md" radius="md">
                 <Text fw={600} mb={4}>
@@ -177,6 +187,7 @@ export default function ZipLookupPage() {
                 </Text>
               </Card>
             ))}
+
             {totalPages > 1 && (
               <Pagination
                 mt="md"
@@ -186,45 +197,15 @@ export default function ZipLookupPage() {
               />
             )}
           </Stack>
-        )}
-        <Modal
-          opened={mapOpen}
-          onClose={() => setMapOpen(false)}
-          title={`311 Complaints Map for ${zip} - ${results.length} records`}
-          size="xl"
-          centered
-        >
-          <MapContainer
-            center={getAverageLatLng(results)}
-            zoom={13}
-            style={{ height: "500px", width: "100%", zIndex: 0 }}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="&copy; OpenStreetMap contributors"
-            />
-            {results.map((item, idx) => {
-              const lat = parseFloat(item.latitude);
-              const lon = parseFloat(item.longitude);
-              if (!lat || !lon) return null;
-              return (
-                <Marker key={idx} position={[lat, lon]} icon={icon}>
-                  <Popup>
-                    <Text fw={600}>{item.complaint_type}</Text>
-                    <Text size="sm">{item.descriptor}</Text>
-                    <Text size="xs" c="gray">
-                      {item.borough} · {item.created_date?.split("T")[0]}
-                    </Text>
-                    <Text size="xs" c="blue.6" mt={4}>
-                      Status: {item.status || "Unknown"}
-                    </Text>
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MapContainer>
-        </Modal>
-      </Container>
-    </>
+        </>
+      )}
+
+      <MapModal
+        opened={mapOpen}
+        onClose={() => setMapOpen(false)}
+        zip={zip}
+        results={results}
+      />
+    </Container>
   );
 }
