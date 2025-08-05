@@ -87,10 +87,6 @@ export default function MapPage() {
 
   return (
     <Container size="xl" py="xl">
-      <Title order={3} mb="sm" c="blue.8">
-        NYC 311 Complaint Map
-      </Title>
-
       <Text size="sm" c="gray.7" mb="lg">
         Visualize recent 311 complaints across New York City. Filter by borough
         and record limit to customize your view.
@@ -126,11 +122,11 @@ export default function MapPage() {
           />
         </Group>
       </Card>
-      <Group mb="md" spacing="xs">
+      <Group mb="md" gap="xs">
         <Text size="xs" c="dimmed" fw={500}>
           Marker Legend:
         </Text>
-        <Group spacing="xs">
+        <Group gap="xs">
           <span
             style={{
               background: "blue",

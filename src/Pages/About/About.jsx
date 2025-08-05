@@ -18,26 +18,13 @@ import {
 export default function AboutPage() {
   return (
     <Container size="xl" py="xl">
-      <Card
-        withBorder
-        radius="md"
-        shadow="xs"
-        mb="xl"
-        padding="md"
-        style={{ backgroundColor: "#f8f9fa" }}
-      >
-        <Text c="blue.8" size="sm" fw={600}>
-          About NYC 311 Snapshot
-        </Text>
-      </Card>
-
       <Stack spacing="xl">
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group mb="sm">
             <ThemeIcon color="blue" variant="light" radius="xl">
               <IconInfoCircle size={18} />
             </ThemeIcon>
-            <Text fw={600}>What is this?</Text>
+            <Text fw={600}>What is NYC 311 Snapshot?</Text>
           </Group>
           <Text size="sm" c="gray.7">
             NYC 311 Snapshot is a civic dashboard that visualizes real-time 311
