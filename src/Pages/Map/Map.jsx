@@ -129,7 +129,7 @@ export default function MapPage() {
         <Group gap="xs">
           <span
             style={{
-              background: "blue",
+              background: "#228be6",
               width: 12,
               height: 12,
               borderRadius: "50%",
@@ -138,7 +138,7 @@ export default function MapPage() {
           <Text size="xs">Manhattan</Text>
           <span
             style={{
-              background: "green",
+              background: "#40c057",
               width: 12,
               height: 12,
               borderRadius: "50%",
