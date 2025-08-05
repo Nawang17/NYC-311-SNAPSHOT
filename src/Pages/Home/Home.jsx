@@ -83,19 +83,23 @@ export default function HomePage() {
     <Container size="xl" py="xl">
       <Card
         withBorder
-        radius="md"
-        shadow="xs"
+        radius="lg"
+        shadow="md"
         mb="xl"
-        padding="md"
-        style={{ backgroundColor: "#f8f9fa" }}
+        padding="lg"
+        style={{
+          background: "linear-gradient(135deg, #e8f4ff, #f8f9fa)",
+          borderLeft: "5px solid #228be6", // Mantine blue.6
+        }}
       >
-        <Text c="blue.8" size="sm" fw={600}>
-          What are New Yorkers reporting right now?
+        <Text c="blue.9" size="md" fw={700} mb={5}>
+          📢 What are New Yorkers reporting right now?
         </Text>
-        <Text size="xs" pt="5px" c="gray.7">
+        <Text size="sm" c="gray.7">
           These insights are based on <strong>this week's</strong> service
-          requests starting from <strong>{weekStartLabel}</strong> across the
-          five boroughs.
+          requests, starting from <strong>{weekStartLabel}</strong>. A total of{" "}
+          <strong>{data.length.toLocaleString()}</strong> requests were reported
+          across the five boroughs.
         </Text>
       </Card>
 
