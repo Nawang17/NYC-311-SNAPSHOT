@@ -3,13 +3,11 @@ import {
   Title,
   Select,
   Loader,
-  Table,
   Text,
   Group,
-  Button,
-  ScrollArea,
   Stack,
   Card,
+  SimpleGrid,
 } from "@mantine/core";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -18,7 +16,6 @@ export default function BoroughsPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [borough, setBorough] = useState("MANHATTAN");
-  const [limit, setLimit] = useState("5000");
   const [range, setRange] = useState("This Week");
 
   const boroughOptions = [
@@ -72,7 +69,7 @@ export default function BoroughsPage() {
       try {
         const [start, end] = getDateRange(range);
         const response = await axios.get(
-          `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&$where=borough='${borough}' AND created_date between '${start}' and '${end}'`
+          `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=50000&$order=created_date DESC&$where=borough='${borough}' AND created_date between '${start}' and '${end}'`
         );
         setData(response.data);
       } catch (err) {
@@ -82,7 +79,7 @@ export default function BoroughsPage() {
       }
     };
     fetchData();
-  }, [borough, limit, range]);
+  }, [borough, range]);
 
   const countByField = (field, dataset, topN = 5) => {
     const counts = dataset.reduce((acc, item) => {
@@ -125,7 +122,7 @@ export default function BoroughsPage() {
           Borough Insights
         </Text>
         <Text size="xs" pt="5px" c="gray.7">
-          Analyze complaint patterns by borough and time window
+          Explore the top complaint patterns in {borough} ({range}, max 50,000)
         </Text>
       </Card>
 
@@ -144,58 +141,37 @@ export default function BoroughsPage() {
           data={timeOptions}
           w={200}
         />
-        <Select
-          label="Complaint Limit"
-          value={limit}
-          onChange={setLimit}
-          data={[
-            { value: "500", label: "Latest 500" },
-            { value: "1000", label: "Latest 1,000" },
-            { value: "5000", label: "Latest 5,000" },
-            { value: "10000", label: "Latest 10,000" },
-            { value: "20000", label: "Latest 20,000" },
-            { value: "30000", label: "Latest 30,000" },
-            { value: "50000", label: "Max 50,000" },
-          ]}
-          w={150}
-        />
       </Group>
-
+      {!loading && (
+        <Text size="sm" c="gray.7" mb="md">
+          Showing <strong>{data.length.toLocaleString()}</strong> records from{" "}
+          <strong>{borough}</strong>
+        </Text>
+      )}
       {loading ? (
         <Loader />
       ) : (
-        <ScrollArea>
-          <Table highlightOnHover withTableBorder withColumnBorders>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Insight</Table.Th>
-                <Table.Th>{borough}</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {insights.map((insight) => (
-                <>
-                  <Table.Tr key={insight.label}>
-                    <Table.Td colSpan={2}>
-                      <Text fw={700} size="sm" c="blue">
-                        {insight.label}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                  {(insight.data.length > 0
-                    ? insight.data
-                    : [{ name: "None", value: 0 }]
-                  ).map((item) => (
-                    <Table.Tr key={`${insight.label}-${item.name}`}>
-                      <Table.Td>{item.name || "Unknown"}</Table.Td>
-                      <Table.Td>{item.value.toLocaleString()}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </ScrollArea>
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+          {insights.map((insight) => (
+            <Card key={insight.label} shadow="xs" padding="md" withBorder>
+              <Text fw={600} size="sm" mb="sm" c="blue.7">
+                {insight.label}
+              </Text>
+              <Stack spacing={4}>
+                {insight.data.map((item) => (
+                  <Group key={item.name} position="apart">
+                    <Text size="sm" c="gray.7">
+                      {item.name || "Unknown"}
+                    </Text>
+                    <Text fw={600} size="sm">
+                      {item.value.toLocaleString()}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            </Card>
+          ))}
+        </SimpleGrid>
       )}
     </Container>
   );

@@ -75,7 +75,7 @@ export default function HomePage() {
         }}
       >
         <Text c="orange.9" size="md" fw={700} mb={5}>
-          📢 What are New Yorkers reporting?
+          What are New Yorkers reporting ?
         </Text>
         <Text size="sm" c="gray.8">
           Based on <strong>this week's</strong> 311 reports across all five
