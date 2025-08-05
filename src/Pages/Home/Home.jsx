@@ -16,18 +16,33 @@ import axios from "axios";
 
 export default function HomePage() {
   const [data, setData] = useState([]);
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(
-          "https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=10000&$order=created_date DESC"
-        );
+        const getStartOfWeek = () => {
+          const now = new Date();
+          const dayOfWeek = now.getDay(); // Sunday = 0
+          const diff = now.getDate() - dayOfWeek;
+          const startOfWeek = new Date(now.setDate(diff));
+          startOfWeek.setHours(0, 0, 0, 0);
+          return startOfWeek.toISOString().split("T")[0] + "T00:00:00";
+        };
+
+        const startOfWeek = getStartOfWeek();
+
+        const url =
+          `https://data.cityofnewyork.us/resource/erm2-nwe9.json` +
+          `?$limit=50000` +
+          `&$order=created_date DESC` +
+          `&$where=created_date >= '${startOfWeek}'`;
+
+        const response = await axios.get(url);
         setData(response.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
+
     fetchData();
   }, []);
 
@@ -46,6 +61,23 @@ export default function HomePage() {
   const topBorough = countByField("borough")[0];
   const topAgency = countByField("agency_name")[0];
   const topLocation = countByField("location_type")[0];
+  const getStartOfWeekLabel = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday
+    const diff = now.getDate() - dayOfWeek;
+    const startOfWeek = new Date(now.setDate(diff));
+    const dayName = startOfWeek.toLocaleDateString(undefined, {
+      weekday: "long",
+    });
+    const dateStr = startOfWeek.toLocaleDateString(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    return `${dayName}, ${dateStr}`;
+  };
+
+  const weekStartLabel = getStartOfWeekLabel();
 
   return (
     <Container size="xl" py="xl">
@@ -61,8 +93,9 @@ export default function HomePage() {
           What are New Yorkers reporting right now?
         </Text>
         <Text size="xs" pt="5px" c="gray.7">
-          These insights are based on the latest <strong>10,000</strong> 311
-          service requests across the five boroughs.
+          These insights are based on <strong>this week's</strong> service
+          requests starting from <strong>{weekStartLabel}</strong> across the
+          five boroughs.
         </Text>
       </Card>
 
