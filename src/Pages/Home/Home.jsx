@@ -61,23 +61,6 @@ export default function HomePage() {
   const topBorough = countByField("borough")[0];
   const topAgency = countByField("agency_name")[0];
   const topLocation = countByField("location_type")[0];
-  const getStartOfWeekLabel = () => {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Sunday
-    const diff = now.getDate() - dayOfWeek;
-    const startOfWeek = new Date(now.setDate(diff));
-    const dayName = startOfWeek.toLocaleDateString(undefined, {
-      weekday: "long",
-    });
-    const dateStr = startOfWeek.toLocaleDateString(undefined, {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-    return `${dayName}, ${dateStr}`;
-  };
-
-  const weekStartLabel = getStartOfWeekLabel();
 
   return (
     <Container size="xl" py="xl">
@@ -88,17 +71,16 @@ export default function HomePage() {
         mb="xl"
         padding="lg"
         style={{
-          background: "linear-gradient(135deg, #fff5e6, #fffaf3)", // soft orange tint
+          background: "linear-gradient(135deg, #fff5e6, #fffaf3)",
         }}
       >
         <Text c="orange.9" size="md" fw={700} mb={5}>
-          📢 What are New Yorkers reporting right now?
+          📢 What are New Yorkers reporting?
         </Text>
         <Text size="sm" c="gray.8">
-          These insights are based on <strong>this week's</strong> service
-          requests, starting from <strong>{weekStartLabel}</strong>. A total of{" "}
-          <strong>{data.length.toLocaleString()}</strong> requests were reported
-          across the five boroughs.
+          Based on <strong>this week's</strong> 311 reports across all five
+          boroughs. Total: <strong>{data.length.toLocaleString()}</strong>{" "}
+          complaints.
         </Text>
       </Card>
 

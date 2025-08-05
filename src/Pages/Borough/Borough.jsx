@@ -11,7 +11,6 @@ import {
   Stack,
   Card,
 } from "@mantine/core";
-import { IconGitCompare } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -19,11 +18,8 @@ export default function BoroughsPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [borough, setBorough] = useState("MANHATTAN");
-  const [compareBorough, setCompareBorough] = useState(null);
-  const [compareData, setCompareData] = useState([]);
-  const [limit, setLimit] = useState("500");
-  const [showComparison, setShowComparison] = useState(false);
-  const [showCompareSelect, setShowCompareSelect] = useState(false);
+  const [limit, setLimit] = useState("5000");
+  const [range, setRange] = useState("This Week");
 
   const boroughOptions = [
     "MANHATTAN",
@@ -33,23 +29,52 @@ export default function BoroughsPage() {
     "STATEN ISLAND",
   ];
 
+  const timeOptions = [
+    "Today",
+    "Last 3 Days",
+    "This Week",
+    "This Month",
+    "This Year",
+  ];
+
+  const getDateRange = (label) => {
+    const now = new Date();
+    let start = new Date();
+
+    switch (label) {
+      case "Today":
+        start.setHours(0, 0, 0, 0);
+        break;
+      case "Last 3 Days":
+        start.setDate(now.getDate() - 2);
+        start.setHours(0, 0, 0, 0);
+        break;
+      case "This Week":
+        start.setDate(now.getDate() - now.getDay());
+        start.setHours(0, 0, 0, 0);
+        break;
+      case "This Month":
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case "This Year":
+        start = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        start.setDate(now.getDate() - 2);
+    }
+
+    return [start.toISOString().split(".")[0], now.toISOString().split(".")[0]];
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        const [start, end] = getDateRange(range);
         const response = await axios.get(
-          `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&borough=${borough}`
+          `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&$where=borough='${borough}' AND created_date between '${start}' and '${end}'`
         );
         setData(response.data);
-
-        if (compareBorough && showComparison) {
-          const compareResponse = await axios.get(
-            `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&borough=${compareBorough}`
-          );
-          setCompareData(compareResponse.data);
-        } else {
-          setCompareData([]);
-        }
       } catch (err) {
         console.error("Error fetching borough data:", err);
       } finally {
@@ -57,7 +82,7 @@ export default function BoroughsPage() {
       }
     };
     fetchData();
-  }, [borough, compareBorough, limit, showComparison]);
+  }, [borough, limit, range]);
 
   const countByField = (field, dataset, topN = 5) => {
     const counts = dataset.reduce((acc, item) => {
@@ -74,39 +99,17 @@ export default function BoroughsPage() {
   const insights = [
     {
       label: "Top Complaint Types",
-      data: countByField("complaint_type", data, 5),
-      compareData: countByField("complaint_type", compareData, 5),
+      data: countByField("complaint_type", data),
     },
-    {
-      label: "Top Agencies",
-      data: countByField("agency_name", data, 5),
-      compareData: countByField("agency_name", compareData, 5),
-    },
-    {
-      label: "Top ZIP Codes",
-      data: countByField("incident_zip", data, 5),
-      compareData: countByField("incident_zip", compareData, 5),
-    },
-    {
-      label: "Top Descriptors",
-      data: countByField("descriptor", data, 5),
-      compareData: countByField("descriptor", compareData, 5),
-    },
-    {
-      label: "Status Breakdown",
-      data: countByField("status", data, 5),
-      compareData: countByField("status", compareData, 5),
-    },
+    { label: "Top Agencies", data: countByField("agency_name", data) },
+    { label: "Top ZIP Codes", data: countByField("incident_zip", data) },
+    { label: "Top Descriptors", data: countByField("descriptor", data) },
+    { label: "Status Breakdown", data: countByField("status", data) },
     {
       label: "Top Resolutions",
-      data: countByField("resolution_description", data, 5),
-      compareData: countByField("resolution_description", compareData, 5),
+      data: countByField("resolution_description", data),
     },
   ];
-
-  const handleCompareClick = () => {
-    setShowCompareSelect(true);
-  };
 
   return (
     <Container size="xl" py="xl">
@@ -122,7 +125,7 @@ export default function BoroughsPage() {
           Borough Insights
         </Text>
         <Text size="xs" pt="5px" c="gray.7">
-          Analyze complaint patterns and compare key metrics across boroughs
+          Analyze complaint patterns by borough and time window
         </Text>
       </Card>
 
@@ -135,57 +138,27 @@ export default function BoroughsPage() {
           w={250}
         />
         <Select
+          label="Time Range"
+          value={range}
+          onChange={setRange}
+          data={timeOptions}
+          w={200}
+        />
+        <Select
           label="Complaint Limit"
           value={limit}
           onChange={setLimit}
           data={[
             { value: "500", label: "Latest 500" },
             { value: "1000", label: "Latest 1,000" },
-            { value: "2000", label: "Latest 2,000" },
-            { value: "3000", label: "Latest 3,000" },
             { value: "5000", label: "Latest 5,000" },
             { value: "10000", label: "Latest 10,000" },
-
             { value: "20000", label: "Latest 20,000" },
-
             { value: "30000", label: "Latest 30,000" },
+            { value: "50000", label: "Max 50,000" },
           ]}
           w={150}
         />
-        {!showCompareSelect && (
-          <Button
-            variant="outline"
-            color="blue"
-            onClick={handleCompareClick}
-            leftSection={<IconGitCompare size={16} />}
-          >
-            Compare with Other Borough
-          </Button>
-        )}
-        {showCompareSelect && (
-          <>
-            <Select
-              label="Compare With"
-              value={compareBorough}
-              onChange={setCompareBorough}
-              data={boroughOptions.filter((b) => b !== borough)}
-              placeholder="Select borough"
-              clearable
-              w={250}
-              disabled={loading}
-            />
-            {compareBorough && (
-              <Button
-                variant={showComparison ? "light" : "filled"}
-                color="blue"
-                onClick={() => setShowComparison(!showComparison)}
-                leftSection={<IconGitCompare size={16} />}
-              >
-                {showComparison ? "Hide Comparison" : "Show Comparison"}
-              </Button>
-            )}
-          </>
-        )}
       </Group>
 
       {loading ? (
@@ -197,16 +170,13 @@ export default function BoroughsPage() {
               <Table.Tr>
                 <Table.Th>Insight</Table.Th>
                 <Table.Th>{borough}</Table.Th>
-                {showComparison && compareBorough && (
-                  <Table.Th>{compareBorough}</Table.Th>
-                )}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {insights.map((insight) => (
                 <>
                   <Table.Tr key={insight.label}>
-                    <Table.Td colSpan={3}>
+                    <Table.Td colSpan={2}>
                       <Text fw={700} size="sm" c="blue">
                         {insight.label}
                       </Text>
@@ -215,17 +185,10 @@ export default function BoroughsPage() {
                   {(insight.data.length > 0
                     ? insight.data
                     : [{ name: "None", value: 0 }]
-                  ).map((item, idx) => (
+                  ).map((item) => (
                     <Table.Tr key={`${insight.label}-${item.name}`}>
                       <Table.Td>{item.name || "Unknown"}</Table.Td>
                       <Table.Td>{item.value.toLocaleString()}</Table.Td>
-                      {showComparison && compareBorough && (
-                        <Table.Td>
-                          {insight.compareData[idx]
-                            ? insight.compareData[idx].value.toLocaleString()
-                            : "—"}
-                        </Table.Td>
-                      )}
                     </Table.Tr>
                   ))}
                 </>
