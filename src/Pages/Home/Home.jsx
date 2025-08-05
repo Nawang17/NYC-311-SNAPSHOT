@@ -89,7 +89,6 @@ export default function HomePage() {
         padding="lg"
         style={{
           background: "linear-gradient(135deg, #fff5e6, #fffaf3)", // soft orange tint
-          borderLeft: "5px solid #f08c00", // Mantine orange[7]
         }}
       >
         <Text c="orange.9" size="md" fw={700} mb={5}>
