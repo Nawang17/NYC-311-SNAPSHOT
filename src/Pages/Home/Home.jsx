@@ -88,14 +88,14 @@ export default function HomePage() {
         mb="xl"
         padding="lg"
         style={{
-          background: "linear-gradient(135deg, #e8f4ff, #f8f9fa)",
-          borderLeft: "5px solid #228be6", // Mantine blue.6
+          background: "linear-gradient(135deg, #fff5e6, #fffaf3)", // soft orange tint
+          borderLeft: "5px solid #f08c00", // Mantine orange[7]
         }}
       >
-        <Text c="blue.9" size="md" fw={700} mb={5}>
+        <Text c="orange.9" size="md" fw={700} mb={5}>
           📢 What are New Yorkers reporting right now?
         </Text>
-        <Text size="sm" c="gray.7">
+        <Text size="sm" c="gray.8">
           These insights are based on <strong>this week's</strong> service
           requests, starting from <strong>{weekStartLabel}</strong>. A total of{" "}
           <strong>{data.length.toLocaleString()}</strong> requests were reported
