@@ -9,6 +9,7 @@ import {
   SimpleGrid,
   Title,
   ThemeIcon,
+  Divider,
 } from "@mantine/core";
 import {
   IconAlertTriangle,
@@ -17,6 +18,9 @@ import {
   IconInfoCircle,
   IconClipboardCheck,
   IconCheckupList,
+  IconTrophy,
+  IconLocation,
+  IconSearch,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -102,6 +106,13 @@ export default function BoroughsPage() {
       .slice(0, topN);
   };
 
+  const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  const topComplaint = countByField("complaint_type", data)[0];
+  const busiestZip = countByField("incident_zip", data)[0];
+  const descriptors = data.map((d) => d.descriptor).filter(Boolean);
+  const randomDescriptor = getRandom(descriptors);
+
   const insights = [
     {
       label: "Top Complaint Types",
@@ -143,23 +154,6 @@ export default function BoroughsPage() {
 
   return (
     <Container size="xl" py="xl">
-      <Card
-        withBorder
-        radius="md"
-        shadow="xs"
-        mb="xl"
-        padding="md"
-        style={{ backgroundColor: "#f8f9fa" }}
-      >
-        <Text c="blue.8" size="sm" fw={600}>
-          Borough Insights
-        </Text>
-        <Text size="xs" pt="5px" c="gray.7">
-          Explore complaint patterns in <strong>{borough}</strong> ({range}, max
-          50,000 records)
-        </Text>
-      </Card>
-
       <Group mb="lg" align="flex-end">
         <Select
           label="Select Borough"
@@ -177,51 +171,97 @@ export default function BoroughsPage() {
         />
       </Group>
 
-      {!loading && (
-        <Text size="sm" c="gray.7" mb="md">
-          Showing <strong>{data.length.toLocaleString()}</strong> records from{" "}
-          <strong>{borough}</strong>
-        </Text>
-      )}
+      <Card
+        withBorder
+        shadow="xs"
+        radius="md"
+        p="lg"
+        mb="xl"
+        style={{ background: "#fffdf5" }}
+      >
+        <Group align="center" spacing="xs" mb="sm">
+          <ThemeIcon variant="light" color="orange" radius="xl">
+            <IconTrophy size={18} />
+          </ThemeIcon>
+          <Title order={4} c="orange.9">
+            {borough} Complaint Snapshot
+          </Title>
+        </Group>
+        <Stack spacing="xs">
+          <Group spacing="xs">
+            <ThemeIcon color="red" variant="light" radius="xl">
+              <IconAlertTriangle size={16} />
+            </ThemeIcon>
+            <Text size="sm">
+              Most reported issue:{" "}
+              <strong>{topComplaint?.name || "Noise"}</strong>
+            </Text>
+          </Group>
+          <Group spacing="xs">
+            <ThemeIcon color="teal" variant="light" radius="xl">
+              <IconLocation size={16} />
+            </ThemeIcon>
+            <Text size="sm">
+              Busiest ZIP: <strong>{busiestZip?.name}</strong> with{" "}
+              <strong>{busiestZip?.value.toLocaleString()}</strong> complaints
+            </Text>
+          </Group>
+          <Group spacing="xs">
+            <ThemeIcon color="gray" variant="light" radius="xl">
+              <IconSearch size={16} />
+            </ThemeIcon>
+            <Text size="sm">
+              Recent descriptor: <strong>{randomDescriptor}</strong>
+            </Text>
+          </Group>
+          <Divider my="sm" />
+          <Text size="sm" c="gray.7">
+            Total: <strong>{data.length.toLocaleString()}</strong> complaints{" "}
+            {range.toLocaleLowerCase()}
+          </Text>
+        </Stack>
+      </Card>
 
       {loading ? (
         <Loader />
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-          {insights.map((insight) => (
-            <Card
-              key={insight.label}
-              shadow="sm"
-              radius="md"
-              withBorder
-              padding="md"
-              style={{
-                backgroundColor: `var(--mantine-color-${insight.color}-0)`,
-              }}
-            >
-              <Group mb="sm">
-                <ThemeIcon variant="light" color={insight.color} radius="xl">
-                  {insight.icon}
-                </ThemeIcon>
-                <Title order={6} c={`${insight.color}.9`}>
-                  {insight.label}
-                </Title>
-              </Group>
-              <Stack spacing={4}>
-                {insight.data.map((item) => (
-                  <Stack key={item.name} spacing={2}>
-                    <Text size="sm" c="gray.7" lh={1.3}>
-                      {item.name || "Unknown"}
-                    </Text>
-                    <Text fw={800} size="lg" c={`${insight.color}.9`}>
-                      {item.value.toLocaleString()}
-                    </Text>
-                  </Stack>
-                ))}
-              </Stack>
-            </Card>
-          ))}
-        </SimpleGrid>
+        <>
+          <Title order={4} mb="sm">
+            Detailed Breakdown
+          </Title>
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+            {insights.map((insight) => (
+              <Card
+                key={insight.label}
+                shadow="sm"
+                radius="md"
+                withBorder
+                padding="md"
+              >
+                <Group mb="sm">
+                  <ThemeIcon variant="light" color={insight.color} radius="xl">
+                    {insight.icon}
+                  </ThemeIcon>
+                  <Title order={6} c={`${insight.color}.9`}>
+                    {insight.label}
+                  </Title>
+                </Group>
+                <Stack spacing="md">
+                  {insight.data.map((item) => (
+                    <Stack key={item.name} spacing={2}>
+                      <Text size="sm" c="gray.6" lh={1.3}>
+                        {item.name || "Unknown"}
+                      </Text>
+                      <Text fw={800} size="lg" c={`${insight.color}.9`}>
+                        {item.value.toLocaleString()}
+                      </Text>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </>
       )}
     </Container>
   );
