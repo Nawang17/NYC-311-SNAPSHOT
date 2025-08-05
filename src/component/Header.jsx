@@ -1,10 +1,17 @@
-import { Button, Group, Title, Flex } from "@mantine/core";
+import {
+  Button,
+  Group,
+  Title,
+  Flex,
+  Paper,
+  useMantineTheme,
+  rem,
+} from "@mantine/core";
 import { useNavigate, useLocation } from "react-router";
 import {
   IconHome,
   IconMapPin,
   IconMap2,
-  IconTrendingUp,
   IconBuildingCommunity,
   IconInfoCircle,
 } from "@tabler/icons-react";
@@ -12,10 +19,10 @@ import {
 export default function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useMantineTheme();
 
   const navButtons = [
     { label: "Home", route: "/", icon: <IconHome size={16} /> },
-
     {
       label: "Boroughs",
       route: "/boroughs",
@@ -26,10 +33,11 @@ export default function AppHeader() {
       route: "/zip-lookup",
       icon: <IconMapPin size={16} />,
     },
-    { label: "Map", route: "/map", icon: <IconMap2 size={16} /> },
-
-    // { label: "Trends", route: "/trends", icon: <IconTrendingUp size={16} /> },
-
+    {
+      label: "Map",
+      route: "/map",
+      icon: <IconMap2 size={16} />,
+    },
     {
       label: "About",
       route: "/about",
@@ -38,15 +46,21 @@ export default function AppHeader() {
   ];
 
   return (
-    <div
+    <Paper
+      shadow="xs"
+      radius={0}
+      withBorder
       style={{
-        borderBottom: "1px solid #e0e0e0",
-        width: "100%",
+        borderBottom: `1px solid ${theme.colors.gray[3]}`,
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        backgroundColor: theme.white,
       }}
     >
       <div
         style={{
-          maxWidth: "1330px",
+          maxWidth: rem(1320),
           margin: "0 auto",
           padding: "1rem 1.5rem",
         }}
@@ -55,7 +69,7 @@ export default function AppHeader() {
           <Title
             order={2}
             c="blue.7"
-            style={{ cursor: "pointer" }}
+            style={{ cursor: "pointer", fontWeight: 700 }}
             onClick={() => navigate("/")}
           >
             NYC 311 Snapshot
@@ -65,11 +79,12 @@ export default function AppHeader() {
             {navButtons.map(({ label, route, icon }) => (
               <Button
                 key={route}
-                variant={location.pathname === route ? "filled" : "light"}
+                variant={location.pathname === route ? "filled" : "subtle"}
                 color="blue"
                 size="xs"
                 leftSection={icon}
                 onClick={() => navigate(route)}
+                radius="xl"
               >
                 {label}
               </Button>
@@ -77,6 +92,6 @@ export default function AppHeader() {
           </Group>
         </Flex>
       </div>
-    </div>
+    </Paper>
   );
 }
