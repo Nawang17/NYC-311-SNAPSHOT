@@ -1,6 +1,5 @@
 import {
   Container,
-  Title,
   Select,
   Loader,
   Text,
@@ -8,7 +7,17 @@ import {
   Stack,
   Card,
   SimpleGrid,
+  Title,
+  ThemeIcon,
 } from "@mantine/core";
+import {
+  IconAlertTriangle,
+  IconBuilding,
+  IconMapPin,
+  IconInfoCircle,
+  IconClipboardCheck,
+  IconCheckupList,
+} from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -25,7 +34,6 @@ export default function BoroughsPage() {
     "QUEENS",
     "STATEN ISLAND",
   ];
-
   const timeOptions = [
     "Today",
     "Last 3 Days",
@@ -37,7 +45,6 @@ export default function BoroughsPage() {
   const getDateRange = (label) => {
     const now = new Date();
     let start = new Date();
-
     switch (label) {
       case "Today":
         start.setHours(0, 0, 0, 0);
@@ -56,11 +63,13 @@ export default function BoroughsPage() {
       case "This Year":
         start = new Date(now.getFullYear(), 0, 1);
         break;
-      default:
-        start.setDate(now.getDate() - 2);
     }
-
-    return [start.toISOString().split(".")[0], now.toISOString().split(".")[0]];
+    const offset = now.getTimezoneOffset() * 60000;
+    const startET = new Date(start.getTime() - offset)
+      .toISOString()
+      .split(".")[0];
+    const endET = new Date(now.getTime() - offset).toISOString().split(".")[0];
+    return [startET, endET];
   };
 
   useEffect(() => {
@@ -96,14 +105,38 @@ export default function BoroughsPage() {
   const insights = [
     {
       label: "Top Complaint Types",
+      icon: <IconAlertTriangle size={18} />,
+      color: "red",
       data: countByField("complaint_type", data),
     },
-    { label: "Top Agencies", data: countByField("agency_name", data) },
-    { label: "Top ZIP Codes", data: countByField("incident_zip", data) },
-    { label: "Top Descriptors", data: countByField("descriptor", data) },
-    { label: "Status Breakdown", data: countByField("status", data) },
+    {
+      label: "Top Agencies",
+      icon: <IconBuilding size={18} />,
+      color: "blue",
+      data: countByField("agency_name", data),
+    },
+    {
+      label: "Top ZIP Codes",
+      icon: <IconMapPin size={18} />,
+      color: "teal",
+      data: countByField("incident_zip", data),
+    },
+    {
+      label: "Top Descriptors",
+      icon: <IconInfoCircle size={18} />,
+      color: "indigo",
+      data: countByField("descriptor", data),
+    },
+    {
+      label: "Status Breakdown",
+      icon: <IconCheckupList size={18} />,
+      color: "grape",
+      data: countByField("status", data),
+    },
     {
       label: "Top Resolutions",
+      icon: <IconClipboardCheck size={18} />,
+      color: "orange",
       data: countByField("resolution_description", data),
     },
   ];
@@ -122,7 +155,8 @@ export default function BoroughsPage() {
           Borough Insights
         </Text>
         <Text size="xs" pt="5px" c="gray.7">
-          Explore the top complaint patterns in {borough} ({range}, max 50,000)
+          Explore complaint patterns in <strong>{borough}</strong> ({range}, max
+          50,000 records)
         </Text>
       </Card>
 
@@ -142,31 +176,47 @@ export default function BoroughsPage() {
           w={200}
         />
       </Group>
+
       {!loading && (
         <Text size="sm" c="gray.7" mb="md">
           Showing <strong>{data.length.toLocaleString()}</strong> records from{" "}
           <strong>{borough}</strong>
         </Text>
       )}
+
       {loading ? (
         <Loader />
       ) : (
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
           {insights.map((insight) => (
-            <Card key={insight.label} shadow="xs" padding="md" withBorder>
-              <Text fw={600} size="sm" mb="sm" c="blue.7">
-                {insight.label}
-              </Text>
+            <Card
+              key={insight.label}
+              shadow="sm"
+              radius="md"
+              withBorder
+              padding="md"
+              style={{
+                backgroundColor: `var(--mantine-color-${insight.color}-0)`,
+              }}
+            >
+              <Group mb="sm">
+                <ThemeIcon variant="light" color={insight.color} radius="xl">
+                  {insight.icon}
+                </ThemeIcon>
+                <Title order={6} c={`${insight.color}.9`}>
+                  {insight.label}
+                </Title>
+              </Group>
               <Stack spacing={4}>
                 {insight.data.map((item) => (
-                  <Group key={item.name} position="apart">
-                    <Text size="sm" c="gray.7">
+                  <Stack key={item.name} spacing={2}>
+                    <Text size="sm" c="gray.7" lh={1.3}>
                       {item.name || "Unknown"}
                     </Text>
-                    <Text fw={600} size="sm">
+                    <Text fw={800} size="lg" c={`${insight.color}.9`}>
                       {item.value.toLocaleString()}
                     </Text>
-                  </Group>
+                  </Stack>
                 ))}
               </Stack>
             </Card>
