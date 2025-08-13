@@ -4,15 +4,15 @@ A modern civic data dashboard that visualizes recent 311 complaints across New Y
 
 🔗 **Live Website:** [https://nyc-311-snapshot.netlify.app](https://nyc-311-snapshot.netlify.app)
 
-## 🚀 Features
+## Features
 
-- 🌆 Citywide and borough-specific 311 complaint visualization
-- 🗺 Interactive map with complaint pins and details
-- 🔎 ZIP code search to explore localized complaint data
-- 📊 Top complaint types and agencies per borough
-- ⚙️ Filter controls for data limit and borough selection
+-  Citywide and borough-specific 311 complaint visualization
+-  Interactive map with complaint pins and details
+-  ZIP code search to explore localized complaint data
+-  Top complaint types and agencies per borough
+-  Filter controls for data limit and borough selection
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - **React** – front-end framework
 - **Mantine** – component library for styling
