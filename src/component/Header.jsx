@@ -33,7 +33,7 @@ export default function AppHeader() {
       { label: "Home", route: "/", icon: <IconHome size={16} /> },
       {
         label: "Boroughs",
-        route: "/boroughs",
+        route: "/borough/Queens",
         icon: <IconBuildingCommunity size={16} />,
       },
       {

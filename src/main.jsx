@@ -22,7 +22,7 @@ createRoot(document.getElementById("root")).render(
           <Route path="/zip-lookup" element={<ZipLookupPage />} />
           <Route path="/trends" element={<TrendsPage />} />
 
-          <Route path="/boroughs" element={<BoroughsPage />} />
+          <Route path="/borough/:slug" element={<BoroughsPage />} />
           <Route path="/map" element={<MapPage />} />
 
           <Route path="/about" element={<AboutPage />} />

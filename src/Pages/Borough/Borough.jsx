@@ -25,26 +25,29 @@ import {
   IconTrophy,
   IconLocation,
   IconSearch,
-  IconCheck,
   IconClockHour3,
   IconDownload,
+  IconArrowRight,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { DatePickerInput } from "@mantine/dates";
+import { useParams, useNavigate, Link } from "react-router";
 
 const SODA = "https://data.cityofnewyork.us/resource/erm2-nwe9.json";
 const PAGE_SIZE = 50000;
 
 /** ---------- helpers ---------- */
-const boroughOptions = [
-  "MANHATTAN",
-  "BRONX",
-  "BROOKLYN",
-  "QUEENS",
-  "STATEN ISLAND",
-];
+const BOROUGHS = ["MANHATTAN", "BRONX", "BROOKLYN", "QUEENS", "STATEN ISLAND"];
+
+const slugify = (b) => b.toLowerCase().replace(/\s+/g, "-");
+const slugToBorough = (slug) => {
+  if (!slug) return null;
+  const s = String(slug).toLowerCase();
+  return BOROUGHS.find((b) => slugify(b) === s) || null;
+};
 
 // SoQL timestamp with local time (avoid UTC shift)
 const soqlLocal = (d) => format(d, "yyyy-MM-dd'T'HH:mm:ss");
@@ -108,28 +111,49 @@ async function fetchBoroughRangeAll(borough, startSOQL, endSOQL) {
       `agency_name, status, resolution_description, location_type, city ` +
       `WHERE ${where} ORDER BY created_date DESC LIMIT ${PAGE_SIZE} OFFSET ${offset}`;
 
-    const res = await axios.get(SODA, {
-      params: { $query: q },
-      // headers: { "X-App-Token": "YOUR_TOKEN" }, // optional
-    });
+    const res = await axios.get(SODA, { params: { $query: q } });
 
     const batch = Array.isArray(res.data) ? res.data : [];
     all.push(...batch);
     offset += batch.length;
 
     if (batch.length < PAGE_SIZE) break;
-    await new Promise((r) => setTimeout(r, 120)); // small pause to avoid 429
+    await new Promise((r) => setTimeout(r, 120)); // avoid 429
   }
 
   return all;
 }
 
 export default function BoroughsPage() {
-  const [data, setData] = useState([]);
-  const [borough, setBorough] = useState("MANHATTAN");
+  const { slug } = useParams();
+  const navigate = useNavigate();
+
+  // init from URL; fallback to MANHATTAN if slug invalid/missing
+  const [borough, setBorough] = useState(
+    () => slugToBorough(slug) || "MANHATTAN"
+  );
   const [dateRange, setDateRange] = useState(defaultRange()); // [start, end]
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+
+  // keep state in sync if the URL slug changes externally
+  useEffect(() => {
+    const b = slugToBorough(slug);
+    if (b && b !== borough) setBorough(b);
+    if (!b && slug) {
+      // unknown slug — normalize URL to default
+      navigate(`/borough/${slugify("MANHATTAN")}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  // when user changes Select, update both state and URL
+  const onBoroughChange = (val) => {
+    if (!val) return;
+    setBorough(val);
+    navigate(`/borough/${slugify(val)}`);
+  };
 
   // Derive normalized bounds and pretty labels from dateRange (stable via memo)
   const { normStartForBadge, normEndForBadge, badgeStart, badgeEnd } =
@@ -331,13 +355,14 @@ export default function BoroughsPage() {
 
   return (
     <Container size="xl" py="xl">
+      {/* top controls */}
       <Group mb="lg" align="flex-end" justify="space-between" wrap="wrap">
         <Group align="flex-end">
           <Select
             label="Select borough"
             value={borough}
-            onChange={setBorough}
-            data={boroughOptions}
+            onChange={onBoroughChange}
+            data={BOROUGHS}
             w={220}
           />
 
@@ -380,25 +405,44 @@ export default function BoroughsPage() {
         </Group>
       ) : (
         <>
-          {/* Snapshot */}
+          {/* Snapshot hero */}
           <Card
             withBorder
             shadow="xs"
             radius="md"
             p="lg"
             mb="xl"
-            style={{ background: "#fffdf5" }}
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0))",
+            }}
           >
-            <Group align="center" gap="xs" mb="sm">
-              <ThemeIcon variant="light" color="orange" radius="xl">
-                <IconTrophy size={18} />
-              </ThemeIcon>
-              <Title order={4} c="orange.9">
-                {borough} snapshot
-              </Title>
-              <Badge variant="light" color="gray">
-                {badgeStart} → {badgeEnd}
-              </Badge>
+            <Group justify="space-between" align="center" mb="xs">
+              <Group gap="xs" align="center">
+                <ThemeIcon variant="light" color="orange" radius="xl">
+                  <IconTrophy size={18} />
+                </ThemeIcon>
+                <Title order={4} c="orange.9" style={{ letterSpacing: -0.2 }}>
+                  {borough} snapshot
+                </Title>
+                <Badge variant="light" color="gray">
+                  {badgeStart} → {badgeEnd}
+                </Badge>
+              </Group>
+
+              <Group gap="xs">
+                {/* <Badge color="blue" variant="light" size="lg">
+                  {fmt(total)}
+                </Badge> */}
+                <Button
+                  component={Link}
+                  to="/"
+                  variant="subtle"
+                  leftSection={<IconArrowLeft size={16} />}
+                >
+                  Back to overview
+                </Button>
+              </Group>
             </Group>
 
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
@@ -462,9 +506,6 @@ export default function BoroughsPage() {
 
             <Stack gap="xs">
               <Group gap="xs">
-                <ThemeIcon color="gray" variant="light" radius="xl">
-                  <IconSearch size={16} />
-                </ThemeIcon>
                 <Text size="sm">
                   Recent descriptor:{" "}
                   <strong>{randomDescriptor || "n/a"}</strong>
