@@ -10,6 +10,7 @@ import {
   Divider,
   SimpleGrid,
   Alert,
+  SegmentedControl,
 } from "@mantine/core";
 import {
   IconInfoCircle,
@@ -20,7 +21,14 @@ import {
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { subDays, format, isValid } from "date-fns";
+import {
+  subDays,
+  format,
+  isValid,
+  startOfWeek,
+  endOfWeek,
+  endOfDay,
+} from "date-fns";
 import { Link } from "react-router";
 
 const SODA = "https://data.cityofnewyork.us/resource/erm2-nwe9.json";
@@ -83,6 +91,7 @@ async function fetchWindowRange(startDate, endDate) {
 }
 
 export default function HomePage() {
+  const [mode, setMode] = useState("rolling"); // 'rolling' | 'week'
   const [thisWeek, setThisWeek] = useState([]);
   const [lastWeek, setLastWeek] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,27 +103,40 @@ export default function HomePage() {
     prevEnd: null,
   });
 
+  // compute date windows based on mode
+  const computeRanges = (now = new Date()) => {
+    if (mode === "rolling") {
+      // last *completed* 7 days for stability
+      const end = endOfDay(subDays(now, 1)); // yesterday 23:59
+      const start = subDays(end, 6); // 7-day window
+      const prevEnd = subDays(start, 1);
+      const prevStart = subDays(prevEnd, 6);
+      return { start, end, prevStart, prevEnd };
+    } else {
+      // calendar week (Sun–Sat), clamped to today for current week display
+      const weekStart = startOfWeek(now, { weekStartsOn: 0 }); // Sun
+      const weekEndFull = endOfWeek(now, { weekStartsOn: 0 }); // Sat
+      const end = new Date(
+        Math.min(weekEndFull.getTime(), endOfDay(now).getTime())
+      );
+      const start = weekStart;
+      const prevStart = subDays(weekStart, 7);
+      const prevEnd = endOfWeek(prevStart, { weekStartsOn: 0 });
+      return { start, end, prevStart, prevEnd };
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const now = new Date();
-        const last7Start = subDays(now, 7);
-        const last7End = now;
-        const prev7Start = subDays(now, 14);
-        const prev7End = subDays(now, 7);
+        const { start, end, prevStart, prevEnd } = computeRanges();
         const [tw, lw] = await Promise.all([
-          fetchWindowRange(last7Start, last7End),
-          fetchWindowRange(prev7Start, prev7End),
+          fetchWindowRange(start, end),
+          fetchWindowRange(prevStart, prevEnd),
         ]);
-        // store the range for display
-        setRange({
-          start: last7Start,
-          end: last7End,
-          prevStart: prev7Start,
-          prevEnd: prev7End,
-        });
+        setRange({ start, end, prevStart, prevEnd });
         setThisWeek(tw.rows);
         setLastWeek(lw.rows);
       } catch (e) {
@@ -123,7 +145,8 @@ export default function HomePage() {
         setLoading(false);
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // ---------- aggregations ----------
   const countBy = (rows, field) => {
@@ -230,7 +253,7 @@ export default function HomePage() {
       out.push(
         `Fastest riser: ${risers[0].name} (${sign}${risers[0].deltaPct.toFixed(
           0
-        )}% vs previous 7 days).`
+        )}% vs ${mode === "rolling" ? "prior 7d" : "last week"}).`
       );
     }
 
@@ -249,7 +272,7 @@ export default function HomePage() {
       );
     }
     return out;
-  }, [thisWeek, complaintDelta, boroughMix, topLocationTW]);
+  }, [thisWeek, complaintDelta, boroughMix, topLocationTW, mode]);
 
   const topFacts = useMemo(() => facts.slice(0, 3), [facts]);
 
@@ -289,6 +312,8 @@ export default function HomePage() {
     });
   }, [boroTWMap, boroLWMap, topIssueByBorough, totalTW]);
 
+  const comparisonShort = mode === "rolling" ? "vs prior 7d" : "vs last week";
+
   return (
     <Container size="xl" py="xl">
       {error && (
@@ -302,7 +327,7 @@ export default function HomePage() {
         </Alert>
       )}
 
-      {/* SUMMARY (rolling last 7 days) */}
+      {/* SUMMARY (rolling last 7 days or this week) */}
       <Card
         withBorder
         radius="lg"
@@ -321,35 +346,54 @@ export default function HomePage() {
             </Title>
 
             <Text size="sm" c="dimmed">
-              {range.start && range.end
-                ? `Last 7 days (${format(range.start, "EEE, MMM d")} - ${format(
-                    range.end,
-                    "EEE, MMM d"
-                  )})`
-                : "Last 7d"}
+              {range.start && range.end ? (
+                <>
+                  {mode === "rolling" ? "Last 7d" : "This week"} (
+                  {format(range.start, "EEE, MMM d")} –{" "}
+                  {format(range.end, "EEE, MMM d")})
+                  <Text component="span" size="sm" c="dimmed"></Text>
+                </>
+              ) : mode === "rolling" ? (
+                "Last 7d"
+              ) : (
+                "This week"
+              )}
             </Text>
           </div>
-          <Badge
-            color={totalDeltaPct >= 0 ? "green" : "red"}
-            variant="light"
-            size="lg"
-            tt="none" // disable ALL CAPS (Mantine v7 shorthand)
-          >
-            {loading ? (
-              "…"
-            ) : (
-              <>
-                {totalTW.toLocaleString()} total (
-                {totalDeltaPct >= 0 ? "+" : ""}
-                {isFinite(totalDeltaPct) ? totalDeltaPct.toFixed(1) : "0"}%
-                <span style={{ fontSize: "0.85em", opacity: 0.8 }}>
-                  {" "}
-                  vs prior 7d
-                </span>
-                )
-              </>
-            )}
-          </Badge>
+
+          <Group align="flex-start" gap="sm">
+            <SegmentedControl
+              value={mode}
+              onChange={setMode}
+              data={[
+                { label: "Last 7 days", value: "rolling" },
+                { label: "This week", value: "week" },
+              ]}
+              size="xs"
+            />
+
+            <Badge
+              color={totalDeltaPct >= 0 ? "green" : "red"}
+              variant="light"
+              size="lg"
+              tt="none"
+            >
+              {loading ? (
+                "…"
+              ) : (
+                <>
+                  {totalTW.toLocaleString()} total (
+                  {totalDeltaPct >= 0 ? "+" : ""}
+                  {isFinite(totalDeltaPct) ? totalDeltaPct.toFixed(1) : "0"}%
+                  <span style={{ fontSize: "0.85em", opacity: 0.8 }}>
+                    {" "}
+                    {comparisonShort}
+                  </span>
+                  )
+                </>
+              )}
+            </Badge>
+          </Group>
         </Group>
 
         <Divider my="sm" />
@@ -358,25 +402,31 @@ export default function HomePage() {
           <Skeleton height={84} radius="md" />
         ) : totalTW === 0 ? (
           <Text size="sm" c="dimmed">
-            No complaints found for the last 7 days.
+            No complaints found for the selected window.
           </Text>
         ) : (
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr", rowGap: 8 }}
           >
             {topFacts.map((f, i) => {
-              const leftIcon =
+              const icon =
                 i === 0 ? (
-                  <IconSparkles size={14} color="violet" />
+                  <IconSparkles size={14} />
                 ) : i === 1 ? (
-                  <IconBolt size={14} color="gold" />
+                  <IconBolt size={14} />
                 ) : (
-                  <IconTrendingUp size={14} color="teal" />
+                  <IconTrendingUp size={14} />
                 );
+              const color = i === 0 ? "violet" : i === 1 ? "yellow" : "teal";
               return (
                 <Group key={i} gap={8} align="flex-start" wrap="nowrap">
-                  <ThemeIcon size="sm" radius="xl" variant="light" color="gray">
-                    {leftIcon}
+                  <ThemeIcon
+                    size="sm"
+                    radius="xl"
+                    variant="light"
+                    color={color}
+                  >
+                    {icon}
                   </ThemeIcon>
                   <Text size="sm" style={{ lineHeight: 1.35 }}>
                     {f}
@@ -396,8 +446,8 @@ export default function HomePage() {
           </Title>
         </Group>
         <Text size="sm" c="dimmed" mb="sm">
-          See this week’s counts, week-over-week change, share of city activity,
-          and each borough’s top issue.
+          See this window’s counts, week-over-week change, share of city
+          activity, and each borough’s top issue.
         </Text>
 
         {loading ? (
@@ -458,7 +508,7 @@ export default function HomePage() {
                     </Group>
 
                     <Text size="xs" c="dimmed" mb={8}>
-                      {b.tw.toLocaleString()} this week • Share:{" "}
+                      {b.tw.toLocaleString()} this window • Share:{" "}
                       {b.share.toFixed(1)}%
                     </Text>
 
