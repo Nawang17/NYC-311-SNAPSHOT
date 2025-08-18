@@ -10,7 +10,8 @@ import {
   Divider,
   SimpleGrid,
   Alert,
-  SegmentedControl,
+  Chip,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconInfoCircle,
@@ -18,26 +19,27 @@ import {
   IconSparkles,
   IconBolt,
   IconTrendingUp,
+  IconMapPin,
+  IconClock,
+  IconMoodSmile,
+  IconTarget,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import {
-  subDays,
-  format,
-  isValid,
-  startOfWeek,
-  endOfWeek,
-  endOfDay,
-} from "date-fns";
+import { subDays, format, isValid, endOfDay } from "date-fns";
 import { Link } from "react-router";
 
+// ------------------
+// Config & constants
+// ------------------
 const SODA = "https://data.cityofnewyork.us/resource/erm2-nwe9.json";
 const PAGE_SIZE = 50000;
 const SAFE_MAX = 300000;
 const SLEEP_MS = 120;
 
 const BOROUGHS = ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN ISLAND"];
-const ACCENTS = ["indigo", "teal", "violet", "orange", "grape"];
+// restrained palette, keep UI neutral; use only two accents
+const ACCENTS = ["indigo", "teal", "indigo", "teal", "indigo"];
 
 const dayStartLiteral = (d) => `${format(d, "yyyy-MM-dd")}T00:00:00`;
 const dayEndLiteral = (d) => `${format(d, "yyyy-MM-dd")}T23:59:59`;
@@ -45,7 +47,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const clamp = (n, min = 0, max = 100) => Math.max(min, Math.min(max, n));
 const boroSlug = (b) => b.toLowerCase().replace(/\s+/g, "-");
 
-// --- data fetch (unchanged) ---
+// ------------------
+// Data fetch (unchanged logic)
+// ------------------
 async function fetchWindowRange(startDate, endDate) {
   const startLit = dayStartLiteral(startDate);
   const endLit = dayEndLiteral(endDate);
@@ -80,7 +84,7 @@ async function fetchWindowRange(startDate, endDate) {
       await sleep(SLEEP_MS);
     } catch (e) {
       if (e?.response?.status === 429) {
-        await sleep(500);
+        await sleep(600);
         continue;
       }
       console.error("Page fetch failed:", e?.response?.status, e?.message);
@@ -90,10 +94,65 @@ async function fetchWindowRange(startDate, endDate) {
   return { rows, total, capped: total > SAFE_MAX };
 }
 
+// ------------------
+// Tiny visual helpers (no extra libs)
+// ------------------
+function RhythmBars({ data, color = "indigo" }) {
+  const max = Math.max(1, ...data);
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(24, 1fr)",
+        gap: 3,
+        height: 28,
+      }}
+    >
+      {data.map((v, i) => (
+        <Tooltip key={i} label={`${i}:00`} withArrow>
+          <div
+            style={{
+              alignSelf: "end",
+              width: "100%",
+              height: `${Math.max(12, (v / max) * 100)}%`,
+              borderRadius: 3,
+              background: `var(--mantine-color-${color}-6)`,
+              opacity: 0.85,
+            }}
+          />
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
+function Meter({ value, color = "indigo" }) {
+  return (
+    <div
+      style={{
+        height: 6,
+        borderRadius: 999,
+        background: "var(--mantine-color-gray-2)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: `${clamp(value)}%`,
+          height: "100%",
+          background: `var(--mantine-color-${color}-6)`,
+        }}
+      />
+    </div>
+  );
+}
+
+// ------------------
+// Home Page Component
+// ------------------
 export default function HomePage() {
-  const [mode, setMode] = useState("rolling"); // 'rolling' | 'week'
-  const [thisWeek, setThisWeek] = useState([]);
-  const [lastWeek, setLastWeek] = useState([]);
+  const [thisWindow, setThisWindow] = useState([]);
+  const [prevWindow, setPrevWindow] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [range, setRange] = useState({
@@ -102,28 +161,15 @@ export default function HomePage() {
     prevStart: null,
     prevEnd: null,
   });
+  const [focusBorough, setFocusBorough] = useState("BROOKLYN");
 
-  // compute date windows based on mode
+  // compute date windows — last completed 7d vs the 7d before that
   const computeRanges = (now = new Date()) => {
-    if (mode === "rolling") {
-      // last *completed* 7 days for stability
-      const end = endOfDay(subDays(now, 1)); // yesterday 23:59
-      const start = subDays(end, 6); // 7-day window
-      const prevEnd = subDays(start, 1);
-      const prevStart = subDays(prevEnd, 6);
-      return { start, end, prevStart, prevEnd };
-    } else {
-      // calendar week (Sun–Sat), clamped to today for current week display
-      const weekStart = startOfWeek(now, { weekStartsOn: 0 }); // Sun
-      const weekEndFull = endOfWeek(now, { weekStartsOn: 0 }); // Sat
-      const end = new Date(
-        Math.min(weekEndFull.getTime(), endOfDay(now).getTime())
-      );
-      const start = weekStart;
-      const prevStart = subDays(weekStart, 7);
-      const prevEnd = endOfWeek(prevStart, { weekStartsOn: 0 });
-      return { start, end, prevStart, prevEnd };
-    }
+    const end = endOfDay(subDays(now, 1)); // yesterday 23:59
+    const start = subDays(end, 6); // last 7 days window
+    const prevEnd = subDays(start, 1);
+    const prevStart = subDays(prevEnd, 6);
+    return { start, end, prevStart, prevEnd };
   };
 
   useEffect(() => {
@@ -137,18 +183,17 @@ export default function HomePage() {
           fetchWindowRange(prevStart, prevEnd),
         ]);
         setRange({ start, end, prevStart, prevEnd });
-        setThisWeek(tw.rows);
-        setLastWeek(lw.rows);
+        setThisWindow(tw.rows);
+        setPrevWindow(lw.rows);
       } catch (e) {
         setError(e?.message || "Failed to load data");
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, []);
 
-  // ---------- aggregations ----------
+  // ---------- helpers ----------
   const countBy = (rows, field) => {
     const map = new Map();
     for (const r of rows) {
@@ -162,8 +207,9 @@ export default function HomePage() {
   const toShare = (items, total) =>
     items.map((d) => ({ ...d, share: total ? (d.value / total) * 100 : 0 }));
 
-  const totalTW = thisWeek.length;
-  const totalLW = lastWeek.length;
+  // totals
+  const totalTW = thisWindow.length;
+  const totalLW = prevWindow.length;
   const totalDeltaPct =
     totalLW === 0
       ? totalTW > 0
@@ -171,15 +217,15 @@ export default function HomePage() {
         : 0
       : ((totalTW - totalLW) / totalLW) * 100;
 
+  // per-complaint aggregates
   const complaintsTW = useMemo(
-    () => countBy(thisWeek, "complaint_type"),
-    [thisWeek]
+    () => countBy(thisWindow, "complaint_type"),
+    [thisWindow]
   );
   const complaintsLW = useMemo(
-    () => countBy(lastWeek, "complaint_type"),
-    [lastWeek]
+    () => countBy(prevWindow, "complaint_type"),
+    [prevWindow]
   );
-
   const complaintDelta = useMemo(() => {
     const lastMap = new Map(complaintsLW.map((x) => [x.name, x.value]));
     return complaintsTW.map((x) => {
@@ -190,104 +236,49 @@ export default function HomePage() {
     });
   }, [complaintsTW, complaintsLW]);
 
-  const topLocationTW = useMemo(
-    () => countBy(thisWeek, "location_type")[0] || null,
-    [thisWeek]
-  );
-
+  // borough mixes
   const boroughMix = useMemo(() => {
-    const arr = toShare(countBy(thisWeek, "borough"), totalTW);
+    const arr = toShare(countBy(thisWindow, "borough"), totalTW);
     const order = [...BOROUGHS];
     const known = arr
       .filter((a) => order.includes(a.name))
       .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
     const unknowns = arr.filter((a) => !order.includes(a.name));
     return [...known, ...unknowns];
-  }, [thisWeek, totalTW]);
+  }, [thisWindow, totalTW]);
 
-  // -------- interesting facts (as before) --------
-  const facts = useMemo(() => {
-    if (!thisWeek.length) return [];
-    const out = [];
-    const byDate = new Map();
-    const byHour = new Map();
-
-    for (const r of thisWeek) {
+  // hourly rhythm per city and per borough
+  const hourlyCity = useMemo(() => {
+    const h = Array.from({ length: 24 }, () => 0);
+    for (const r of thisWindow) {
       const d = new Date(r.created_date);
       if (!isValid(d)) continue;
-      const ymd = format(d, "yyyy-MM-dd");
-      byDate.set(ymd, (byDate.get(ymd) || 0) + 1);
-      byHour.set(d.getHours(), (byHour.get(d.getHours()) || 0) + 1);
+      h[d.getHours()]++;
     }
+    return h;
+  }, [thisWindow]);
 
-    const busiestDateEntry = Array.from(byDate.entries()).sort(
-      (a, b) => b[1] - a[1]
-    )[0];
-    if (busiestDateEntry) {
-      const [ymd, count] = busiestDateEntry;
-      const dow = format(new Date(ymd + "T00:00:00"), "EEEE");
-      const pretty = format(new Date(ymd + "T00:00:00"), "MMM d");
-      out.push(
-        `Busiest day: ${dow}, ${pretty} (${count.toLocaleString()} reports).`
+  const hourlyByBorough = useMemo(() => {
+    const map = new Map();
+    for (const b of BOROUGHS)
+      map.set(
+        b,
+        Array.from({ length: 24 }, () => 0)
       );
+    for (const r of thisWindow) {
+      const b = BOROUGHS.includes(r.borough) ? r.borough : null;
+      if (!b) continue;
+      const d = new Date(r.created_date);
+      if (!isValid(d)) continue;
+      map.get(b)[d.getHours()]++;
     }
+    return map;
+  }, [thisWindow]);
 
-    const busiestHourEntry = Array.from(byHour.entries()).sort(
-      (a, b) => b[1] - a[1]
-    )[0];
-    if (busiestHourEntry) {
-      const [hour24, count] = busiestHourEntry;
-      const hour12 = hour24 % 12 || 12;
-      const ampm = hour24 < 12 ? "AM" : "PM";
-      out.push(
-        `Peak hour: ${hour12} ${ampm} (${count.toLocaleString()} reports).`
-      );
-    }
-
-    const minBaseline = 25;
-    const risers = complaintDelta
-      .filter((x) => x.value >= minBaseline)
-      .sort((a, b) => b.deltaPct - a.deltaPct);
-    if (risers[0]) {
-      const sign = risers[0].deltaPct >= 0 ? "+" : "";
-      out.push(
-        `Fastest riser: ${risers[0].name} (${sign}${risers[0].deltaPct.toFixed(
-          0
-        )}% vs ${mode === "rolling" ? "prior 7d" : "last week"}).`
-      );
-    }
-
-    if (boroughMix.length) {
-      const lead = boroughMix.slice().sort((a, b) => b.share - a.share)[0];
-      out.push(
-        `Most concentrated borough: ${lead.name} (${lead.share.toFixed(1)}%).`
-      );
-    }
-
-    if (topLocationTW) {
-      out.push(
-        `Commonest location: ${
-          topLocationTW.name
-        } (${topLocationTW.value.toLocaleString()} mentions).`
-      );
-    }
-    return out;
-  }, [thisWeek, complaintDelta, boroughMix, topLocationTW, mode]);
-
-  const topFacts = useMemo(() => facts.slice(0, 3), [facts]);
-
-  // ---- per-borough cards ----
-  const boroTWMap = useMemo(
-    () => new Map(countBy(thisWeek, "borough").map((x) => [x.name, x.value])),
-    [thisWeek]
-  );
-  const boroLWMap = useMemo(
-    () => new Map(countBy(lastWeek, "borough").map((x) => [x.name, x.value])),
-    [lastWeek]
-  );
+  // top issue by borough
   const topIssueByBorough = useMemo(() => {
     const gb = new Map();
-    for (const r of thisWeek) {
+    for (const r of thisWindow) {
       const b = r.borough || "Unknown";
       if (!gb.has(b)) gb.set(b, []);
       gb.get(b).push(r);
@@ -299,21 +290,162 @@ export default function HomePage() {
       out.set(b, top?.name || "—");
     }
     return out;
-  }, [thisWeek]);
+  }, [thisWindow]);
 
+  // persona builder
+  const personaFor = (b) => {
+    const top = topIssueByBorough.get(b) || "—";
+    const hourArr = hourlyByBorough.get(b) || [];
+    let peakHour = 0,
+      peakVal = -1;
+    hourArr.forEach((v, i) => {
+      if (v > peakVal) {
+        peakVal = v;
+        peakHour = i;
+      }
+    });
+    const h12 = peakHour % 12 || 12;
+    const ampm = peakHour < 12 ? "AM" : "PM";
+
+    const vibe = (() => {
+      const t = (top || "").toLowerCase();
+      if (t.includes("noise") || t.includes("music")) return "Late-night hum";
+      if (t.includes("heat") || t.includes("hot water"))
+        return "Radiator watch";
+      if (t.includes("illegal parking") || t.includes("blocked"))
+        return "Parking patrol";
+      if (t.includes("street condition") || t.includes("pothole"))
+        return "Bumpy roads";
+      if (t.includes("sanitation") || t.includes("collection"))
+        return "Cleanup focus";
+      if (t.includes("aircraft") || t.includes("airport"))
+        return "Under the flight path";
+      return "Attentive block";
+    })();
+
+    return {
+      tagline: vibe,
+      bullets: [
+        `Peak around ${h12} ${ampm}`,
+        `Signature: ${top}`,
+        `Share of city: ${(
+          boroughMix.find((x) => x.name === b)?.share || 0
+        ).toFixed(1)}%`,
+      ],
+    };
+  };
+
+  // city mood label
+  const cityMood = useMemo(() => {
+    if (!complaintsTW.length) return { label: "Calm", why: "Very low volume" };
+    const top = complaintsTW[0].name.toLowerCase();
+    if (top.includes("noise"))
+      return { label: "Noisy evening", why: "Noise leads citywide" };
+    if (top.includes("heat") || top.includes("hot water"))
+      return { label: "Chilly", why: "Heat/Hot water issues on top" };
+    if (top.includes("illegal parking"))
+      return { label: "Parking pains", why: "Illegal parking elevated" };
+    if (top.includes("street condition") || top.includes("pothole"))
+      return { label: "Bumpy", why: "Street conditions dominate" };
+    if (top.includes("sanitation") || top.includes("collection"))
+      return { label: "Cleanup mode", why: "Sanitation leads" };
+    return { label: "Watchful", why: `Top: ${complaintsTW[0].name}` };
+  }, [complaintsTW]);
+
+  // extremes
+  const extremes = useMemo(() => {
+    if (!thisWindow.length) return [];
+    const byDate = new Map();
+    for (const r of thisWindow) {
+      const d = new Date(r.created_date);
+      if (!isValid(d)) continue;
+      const ymd = format(d, "yyyy-MM-dd");
+      byDate.set(ymd, (byDate.get(ymd) || 0) + 1);
+    }
+    const sorted = Array.from(byDate.entries()).sort((a, b) => b[1] - a[1]);
+    const top = sorted[0];
+    return top ? [{ date: top[0], count: top[1] }] : [];
+  }, [thisWindow]);
+
+  // derived cards per borough
   const boroughCards = useMemo(() => {
+    const boroTW = new Map(
+      countBy(thisWindow, "borough").map((x) => [x.name, x.value])
+    );
+    const boroLW = new Map(
+      countBy(prevWindow, "borough").map((x) => [x.name, x.value])
+    );
     return BOROUGHS.map((b, i) => {
-      const tw = boroTWMap.get(b) || 0;
-      const lw = boroLWMap.get(b) || 0;
+      const tw = boroTW.get(b) || 0;
+      const lw = boroLW.get(b) || 0;
       const share = totalTW ? (tw / totalTW) * 100 : 0;
       const deltaPct = lw === 0 ? (tw > 0 ? 100 : 0) : ((tw - lw) / lw) * 100;
-      const top = topIssueByBorough.get(b) || "—";
-      return { name: b, tw, share, deltaPct, top, accent: ACCENTS[i] };
+      const persona = personaFor(b);
+      return { name: b, tw, share, deltaPct, accent: ACCENTS[i], persona };
     });
-  }, [boroTWMap, boroLWMap, topIssueByBorough, totalTW]);
+  }, [
+    thisWindow,
+    prevWindow,
+    totalTW,
+    topIssueByBorough,
+    hourlyByBorough,
+    boroughMix,
+  ]);
 
-  const comparisonShort = mode === "rolling" ? "vs prior 7d" : "vs last week";
+  // "What if you moved here"
+  const predictionFor = (b) => {
+    const rows = thisWindow.filter((r) => r.borough === b);
+    const localTop = countBy(rows, "complaint_type").slice(0, 3);
+    const chance = ((rows.length / (totalTW || 1)) * 100).toFixed(1);
+    const hourArr = hourlyByBorough.get(b) || [];
+    let peakHour = 0,
+      peakVal = -1;
+    hourArr.forEach((v, i) => {
+      if (v > peakVal) {
+        peakVal = v;
+        peakHour = i;
+      }
+    });
+    const h12 = peakHour % 12 || 12;
+    const ampm = peakHour < 12 ? "AM" : "PM";
+    return {
+      odds: `${chance}% of all city reports came from ${b}`,
+      top3: localTop.map((x) => x.name),
+      tip: localTop.find((x) => /noise/i.test(x.name))
+        ? "Consider white noise / interior bedrooms"
+        : localTop.find((x) => /heat|hot water/i.test(x.name))
+        ? "Ask for heat history and boiler logs"
+        : localTop.find((x) => /parking/i.test(x.name))
+        ? "Check overnight parking options"
+        : `Peak activity near ${h12} ${ampm}`,
+    };
+  };
 
+  const selectedPrediction = predictionFor(focusBorough);
+  const comparisonShort = "vs prior 7d";
+  const ACCENT = "indigo";
+
+  function QuietBadge({ icon, children, color = ACCENT }) {
+    return (
+      <Badge
+        variant="outline"
+        color={color}
+        size="lg"
+        leftSection={icon}
+        // subtle tint + accent border
+        style={{
+          background: `var(--mantine-color-${color}-0)`,
+          borderColor: `var(--mantine-color-${color}-3)`,
+        }}
+      >
+        {children}
+      </Badge>
+    );
+  }
+
+  // ------------------
+  // Render
+  // ------------------
   return (
     <Container size="xl" py="xl">
       {error && (
@@ -327,7 +459,7 @@ export default function HomePage() {
         </Alert>
       )}
 
-      {/* SUMMARY (rolling last 7 days or this week) */}
+      {/* HERO: City vibe */}
       <Card
         withBorder
         radius="lg"
@@ -336,7 +468,7 @@ export default function HomePage() {
         mb="lg"
         style={{
           background:
-            "linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0))",
+            "linear-gradient(180deg, var(--mantine-color-gray-0), rgba(0,0,0,0))",
         }}
       >
         <Group justify="space-between" align="flex-start">
@@ -344,36 +476,21 @@ export default function HomePage() {
             <Title order={2} style={{ letterSpacing: -0.3 }}>
               NYC 311 Snapshot
             </Title>
-
             <Text size="sm" c="dimmed">
               {range.start && range.end ? (
                 <>
-                  {mode === "rolling" ? "Last 7d" : "This week"} (
-                  {format(range.start, "EEE, MMM d")} –{" "}
+                  Last 7 days ({format(range.start, "EEE, MMM d")} -{" "}
                   {format(range.end, "EEE, MMM d")})
-                  <Text component="span" size="sm" c="dimmed"></Text>
                 </>
-              ) : mode === "rolling" ? (
-                "Last 7d"
               ) : (
-                "This week"
+                "Last 7 days"
               )}
             </Text>
           </div>
 
           <Group align="flex-start" gap="sm">
-            <SegmentedControl
-              value={mode}
-              onChange={setMode}
-              data={[
-                { label: "Last 7 days", value: "rolling" },
-                { label: "This week", value: "week" },
-              ]}
-              size="xs"
-            />
-
             <Badge
-              color={totalDeltaPct >= 0 ? "green" : "red"}
+              color={totalDeltaPct >= 0 ? "teal" : "red"}
               variant="light"
               size="lg"
               tt="none"
@@ -402,52 +519,261 @@ export default function HomePage() {
           <Skeleton height={84} radius="md" />
         ) : totalTW === 0 ? (
           <Text size="sm" c="dimmed">
-            No complaints found for the selected window.
+            No activity in this window.
           </Text>
         ) : (
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr", rowGap: 8 }}
-          >
-            {topFacts.map((f, i) => {
-              const icon =
-                i === 0 ? (
-                  <IconSparkles size={14} />
-                ) : i === 1 ? (
-                  <IconBolt size={14} />
-                ) : (
-                  <IconTrendingUp size={14} />
-                );
-              const color = i === 0 ? "violet" : i === 1 ? "yellow" : "teal";
-              return (
-                <Group key={i} gap={8} align="flex-start" wrap="nowrap">
-                  <ThemeIcon
-                    size="sm"
-                    radius="xl"
-                    variant="light"
-                    color={color}
-                  >
-                    {icon}
-                  </ThemeIcon>
-                  <Text size="sm" style={{ lineHeight: 1.35 }}>
-                    {f}
-                  </Text>
-                </Group>
-              );
-            })}
-          </div>
+          <Group gap="md" wrap="wrap">
+            <QuietBadge icon={<IconMoodSmile size={12} />}>
+              City mood: {cityMood.label}
+            </QuietBadge>
+
+            <QuietBadge icon={<IconBolt size={12} />}>
+              Why: {cityMood.why}
+            </QuietBadge>
+
+            {extremes[0] && (
+              <QuietBadge icon={<IconSparkles size={12} />}>
+                Busiest day:{" "}
+                {format(new Date(extremes[0].date + "T00:00:00"), "EEE, MMM d")}{" "}
+                ({extremes[0].count.toLocaleString()} reports)
+              </QuietBadge>
+            )}
+
+            {/* Optional city 24h rhythm strip */}
+            {/* <div style={{ flex: 1, minWidth: 280 }}>
+    <Text size="xs" c="dimmed" mb={4}>City rhythm (last window)</Text>
+    <RhythmBars data={hourlyCity} color={ACCENT} />
+  </div> */}
+          </Group>
         )}
       </Card>
 
-      {/* EXPLORE BY BOROUGH */}
-      <Card withBorder radius="lg" shadow="sm" p="lg">
+      {/* PERSONALITY PROFILES */}
+      <Card withBorder radius="lg" shadow="sm" p="lg" mb="lg">
         <Group justify="space-between" mb="xs">
           <Title order={4} style={{ letterSpacing: -0.2 }}>
-            Explore by Borough
+            Borough personality profiles
+          </Title>
+        </Group>
+        {/* <Text size="sm" c="dimmed" mb="sm">
+          A quick vibe from peak hours & signature issues. Color accents are
+          restrained per-card.
+        </Text> */}
+
+        {loading ? (
+          <Skeleton height={220} radius="md" />
+        ) : (
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+            {boroughCards
+              .sort((a, b) => b.tw - a.tw)
+              .map((b) => {
+                const up = b.deltaPct >= 0;
+                return (
+                  <Card
+                    key={b.name}
+                    withBorder
+                    radius="md"
+                    padding="lg"
+                    component={Link}
+                    to={`/borough/${boroSlug(b.name)}`}
+                    style={{
+                      textDecoration: "none",
+                      transition:
+                        "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
+                      minHeight: 220,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow =
+                        "0 6px 16px rgba(0,0,0,0.08)";
+                      e.currentTarget.style.borderColor =
+                        "var(--mantine-color-gray-5)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "none";
+                      e.currentTarget.style.boxShadow = "none";
+                      e.currentTarget.style.borderColor =
+                        "var(--mantine-color-gray-4)";
+                    }}
+                  >
+                    <Group justify="space-between" mb={6} wrap="nowrap">
+                      <Group gap={6} wrap="nowrap">
+                        <ThemeIcon
+                          size="sm"
+                          radius="xl"
+                          variant="light"
+                          color={b.accent}
+                        >
+                          <IconMapPin size={14} />
+                        </ThemeIcon>
+                        <Text fw={700} lineClamp={1}>
+                          {b.name}
+                        </Text>
+                      </Group>
+                      <Badge
+                        color={up ? "teal" : "red"}
+                        variant="light"
+                        leftSection={
+                          <IconTrendingUp
+                            size={12}
+                            style={{
+                              transform: up ? "none" : "rotate(180deg)",
+                            }}
+                          />
+                        }
+                      >
+                        {up ? "+" : ""}
+                        {isFinite(b.deltaPct) ? b.deltaPct.toFixed(0) : "0"}%
+                      </Badge>
+                    </Group>
+
+                    <Text size="xs" c="dimmed" mb={8}>
+                      {b.tw.toLocaleString()} this window • Share{" "}
+                      {b.share.toFixed(1)}%
+                    </Text>
+
+                    <Text fw={600} mb={6} style={{ fontSize: 14 }}>
+                      {b.persona.tagline}
+                    </Text>
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {b.persona.bullets.map((t, i) => (
+                        <li key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* subtle hourly strip per borough */}
+                    <div style={{ marginTop: 10 }}>
+                      <Text size="xs" c="dimmed" mb={4}>
+                        24h pattern
+                      </Text>
+                      <RhythmBars
+                        data={
+                          hourlyByBorough.get(b.name) ||
+                          Array.from({ length: 24 }, () => 0)
+                        }
+                        color={b.accent}
+                      />
+                    </div>
+
+                    <div style={{ marginTop: "auto" }}>
+                      <Divider my={8} />
+                      <Group justify="space-between" align="center">
+                        <Group gap={6}>
+                          <ThemeIcon
+                            size="sm"
+                            radius="xl"
+                            variant="light"
+                            color={b.accent}
+                          >
+                            <IconClock size={14} />
+                          </ThemeIcon>
+                          <Text size="xs" c="dimmed">
+                            Tap to explore details
+                          </Text>
+                        </Group>
+                        <Group
+                          gap={6}
+                          c={`${b.accent}.7`}
+                          style={{ fontWeight: 600 }}
+                        >
+                          <span style={{ fontSize: 13 }}>Open</span>
+                          <IconArrowRight size={16} />
+                        </Group>
+                      </Group>
+                    </div>
+                  </Card>
+                );
+              })}
+          </SimpleGrid>
+        )}
+      </Card>
+
+      {/* WHAT IF YOU MOVED HERE */}
+      <Card withBorder radius="lg" shadow="sm" p="lg" mb="lg">
+        <Group justify="space-between" mb="xs" align="flex-end">
+          <div>
+            <Title order={4} style={{ letterSpacing: -0.2 }}>
+              What if you moved here
+            </Title>
+            <Text size="sm" c="dimmed">
+              Pick a borough to see likely nuisances and a practical tip.
+            </Text>
+          </div>
+          <Chip.Group
+            multiple={false}
+            value={focusBorough}
+            onChange={setFocusBorough}
+          >
+            <Group justify="flex-start" mt="md">
+              {BOROUGHS.map((b, idx) => (
+                <Chip
+                  key={b}
+                  value={b}
+                  radius="sm"
+                  variant="light"
+                  color={ACCENTS[idx]}
+                >
+                  {b}
+                </Chip>
+              ))}
+            </Group>
+          </Chip.Group>
+        </Group>
+        {loading ? (
+          <Skeleton height={120} radius="md" />
+        ) : (
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+            <Card withBorder radius="md" p="md">
+              <Group gap={6} mb={6}>
+                <ThemeIcon size="sm" radius="xl" variant="light" color="teal">
+                  <IconTarget size={14} />
+                </ThemeIcon>
+                <Text fw={600}>Odds</Text>
+              </Group>
+              <Text size="sm">{selectedPrediction.odds}</Text>
+            </Card>
+            <Card withBorder radius="md" p="md">
+              <Group gap={6} mb={6}>
+                <ThemeIcon size="sm" radius="xl" variant="light" color="indigo">
+                  <IconSparkles size={14} />
+                </ThemeIcon>
+                <Text fw={600}>Top 3 issues</Text>
+              </Group>
+              <Group gap={6} wrap="wrap">
+                {selectedPrediction.top3.map((t) => (
+                  <Badge key={t} variant="light">
+                    {t}
+                  </Badge>
+                ))}
+              </Group>
+            </Card>
+            <Card withBorder radius="md" p="md">
+              <Group gap={6} mb={6}>
+                <ThemeIcon size="sm" radius="xl" variant="light" color="yellow">
+                  <IconBolt size={14} />
+                </ThemeIcon>
+                <Text fw={600}>Tip</Text>
+              </Group>
+              <Text size="sm">{selectedPrediction.tip}</Text>
+            </Card>
+          </SimpleGrid>
+        )}
+      </Card>
+
+      {/* EXPLORE BY BOROUGH (compact, restrained) */}
+      {/* <Card withBorder radius="lg" shadow="sm" p="lg">
+        <Group justify="space-between" mb="xs">
+          <Title order={4} style={{ letterSpacing: -0.2 }}>
+            Explore by borough
           </Title>
         </Group>
         <Text size="sm" c="dimmed" mb="sm">
-          See this window’s counts, week-over-week change, share of city
-          activity, and each borough’s top issue.
+          Counts, week-over-week change, and share of city activity with a
+          single accent color per card.
         </Text>
 
         {loading ? (
@@ -491,7 +817,7 @@ export default function HomePage() {
                     <Group justify="space-between" mb={6}>
                       <Text fw={700}>{b.name}</Text>
                       <Badge
-                        color={up ? "green" : "red"}
+                        color={up ? "teal" : "red"}
                         variant="light"
                         leftSection={
                           <IconTrendingUp
@@ -508,37 +834,21 @@ export default function HomePage() {
                     </Group>
 
                     <Text size="xs" c="dimmed" mb={8}>
-                      {b.tw.toLocaleString()} this window • Share:{" "}
+                      {b.tw.toLocaleString()} this window • Share{" "}
                       {b.share.toFixed(1)}%
                     </Text>
 
-                    <div
-                      style={{
-                        height: 6,
-                        borderRadius: 999,
-                        background: "var(--mantine-color-gray-2)",
-                        overflow: "hidden",
-                        marginBottom: 10,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${clamp(b.share)}%`,
-                          height: "100%",
-                          background: `var(--mantine-color-${b.accent}-5)`,
-                        }}
-                      />
-                    </div>
+                    <Meter value={b.share} color={b.accent} />
 
                     <div style={{ marginTop: "auto" }}>
                       <Divider my={8} />
                       <Group justify="space-between" align="center">
                         <div>
                           <Text size="xs" c="dimmed">
-                            Top issue
+                            Persona
                           </Text>
                           <Text size="sm" fw={600} lineClamp={1}>
-                            {b.top}
+                            {b.persona.tagline}
                           </Text>
                         </div>
                         <Group
@@ -556,7 +866,7 @@ export default function HomePage() {
               })}
           </SimpleGrid>
         )}
-      </Card>
+      </Card> */}
     </Container>
   );
 }

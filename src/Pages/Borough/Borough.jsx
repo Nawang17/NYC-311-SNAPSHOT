@@ -14,6 +14,7 @@ import {
   Progress,
   Alert,
   Button,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconAlertTriangle,
@@ -23,16 +24,18 @@ import {
   IconClipboardCheck,
   IconCheckupList,
   IconTrophy,
-  IconLocation,
-  IconSearch,
   IconClockHour3,
   IconDownload,
-  IconArrowRight,
   IconArrowLeft,
+  IconBolt,
+  IconTrendingUp,
+  IconSparkles,
+  IconClock,
+  IconTarget,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { format, formatDistanceToNowStrict, isValid } from "date-fns";
 import { DatePickerInput } from "@mantine/dates";
 import { useParams, useNavigate, Link } from "react-router";
 
@@ -40,7 +43,14 @@ const SODA = "https://data.cityofnewyork.us/resource/erm2-nwe9.json";
 const PAGE_SIZE = 50000;
 
 /** ---------- helpers ---------- */
-const BOROUGHS = ["MANHATTAN", "BRONX", "BROOKLYN", "QUEENS", "STATEN ISLAND"];
+const BOROUGHS = ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN ISLAND"];
+const ACCENT_BY_BORO = {
+  MANHATTAN: "indigo",
+  BROOKLYN: "teal",
+  QUEENS: "indigo",
+  BRONX: "teal",
+  "STATEN ISLAND": "indigo",
+};
 
 const slugify = (b) => b.toLowerCase().replace(/\s+/g, "-");
 const slugToBorough = (slug) => {
@@ -124,6 +134,36 @@ async function fetchBoroughRangeAll(borough, startSOQL, endSOQL) {
   return all;
 }
 
+/** tiny visual from Home: 24h micro-bars */
+function RhythmBars({ data, color = "indigo" }) {
+  const max = Math.max(1, ...data);
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(24, 1fr)",
+        gap: 3,
+        height: 28,
+      }}
+    >
+      {data.map((v, i) => (
+        <Tooltip key={i} label={`${i}:00`} withArrow>
+          <div
+            style={{
+              alignSelf: "end",
+              width: "100%",
+              height: `${Math.max(12, (v / max) * 100)}%`,
+              borderRadius: 3,
+              background: `var(--mantine-color-${color}-6)`,
+              opacity: 0.85,
+            }}
+          />
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
 export default function BoroughsPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -134,6 +174,7 @@ export default function BoroughsPage() {
   );
   const [dateRange, setDateRange] = useState(defaultRange()); // [start, end]
   const [data, setData] = useState([]);
+  const [prevData, setPrevData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
 
@@ -156,40 +197,54 @@ export default function BoroughsPage() {
   };
 
   // Derive normalized bounds and pretty labels from dateRange (stable via memo)
-  const { normStartForBadge, normEndForBadge, badgeStart, badgeEnd } =
-    useMemo(() => {
-      const [rawStart, rawEnd] = dateRange || [];
-      const nStart = normalizePickedDate(rawStart) || new Date();
-      const nEnd = normalizePickedDate(rawEnd) || new Date();
-      return {
-        normStartForBadge: nStart,
-        normEndForBadge: nEnd,
-        badgeStart: format(startOfDay(nStart), "MMM d, yyyy"),
-        badgeEnd: format(endOfDay(nEnd), "MMM d, yyyy"),
-      };
-    }, [dateRange]);
+  const {
+    normStartForBadge,
+    normEndForBadge,
+    badgeStart,
+    badgeEnd,
+    prevStart,
+    prevEnd,
+  } = useMemo(() => {
+    const [rawStart, rawEnd] = dateRange || [];
+    const nStart = startOfDay(normalizePickedDate(rawStart) || new Date());
+    const nEnd = endOfDay(normalizePickedDate(rawEnd) || new Date());
+    // previous window = equal length immediately before start
+    const spanMs = Math.max(0, nEnd.getTime() - nStart.getTime());
+    const pEnd = new Date(nStart.getTime() - 1);
+    const pStart = new Date(pEnd.getTime() - spanMs);
+    return {
+      normStartForBadge: nStart,
+      normEndForBadge: nEnd,
+      badgeStart: format(nStart, "MMM d, yyyy"),
+      badgeEnd: format(nEnd, "MMM d, yyyy"),
+      prevStart: startOfDay(pStart),
+      prevEnd: endOfDay(pEnd),
+    };
+  }, [dateRange]);
 
-  // Fetch on borough or range change
+  // Fetch on borough or range change (both current and previous window)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setErr(null);
       try {
-        const [rawStart, rawEnd] = dateRange || [];
-        const normStart = startOfDay(
-          normalizePickedDate(rawStart) || new Date()
-        );
-        const normEnd = endOfDay(normalizePickedDate(rawEnd) || new Date());
-        if (normStart > normEnd)
-          throw new Error("Start date must be before end date.");
-
-        const rows = await fetchBoroughRangeAll(
-          borough,
-          soqlLocal(normStart),
-          soqlLocal(normEnd)
-        );
-        if (!cancelled) setData(rows);
+        const [rows, rowsPrev] = await Promise.all([
+          fetchBoroughRangeAll(
+            borough,
+            soqlLocal(normStartForBadge),
+            soqlLocal(normEndForBadge)
+          ),
+          fetchBoroughRangeAll(
+            borough,
+            soqlLocal(prevStart),
+            soqlLocal(prevEnd)
+          ),
+        ]);
+        if (!cancelled) {
+          setData(rows);
+          setPrevData(rowsPrev);
+        }
       } catch (e) {
         console.error(e);
         if (!cancelled) setErr(e?.message || "Failed to load borough data");
@@ -200,11 +255,18 @@ export default function BoroughsPage() {
     return () => {
       cancelled = true;
     };
-  }, [borough, dateRange]);
+  }, [borough, normStartForBadge, normEndForBadge, prevStart, prevEnd]);
 
   const total = data.length;
+  const totalPrev = prevData.length;
+  const pctChange =
+    totalPrev === 0
+      ? total > 0
+        ? 100
+        : 0
+      : ((total - totalPrev) / totalPrev) * 100;
 
-  // Aggregations
+  // Aggregations (current)
   const topComplaint = useMemo(
     () => safeTop(countBy(data, "complaint_type")),
     [data]
@@ -271,6 +333,57 @@ export default function BoroughsPage() {
     if (!list.length) return null;
     return list[Math.floor(Math.random() * list.length)];
   }, [data]);
+
+  // Hourly rhythm + busiest hour
+  const hourlyArr = useMemo(() => {
+    const h = Array.from({ length: 24 }, () => 0);
+    for (const r of data) {
+      const d = new Date(r.created_date);
+      if (!isValid(d)) continue;
+      h[d.getHours()]++;
+    }
+    return h;
+  }, [data]);
+
+  const busiestHour = useMemo(() => {
+    let idx = 0,
+      max = -1;
+    hourlyArr.forEach((v, i) => {
+      if (v > max) {
+        max = v;
+        idx = i;
+      }
+    });
+    const h12 = idx % 12 || 12;
+    const ampm = idx < 12 ? "AM" : "PM";
+    return { idx, label: `${h12} ${ampm}` };
+  }, [hourlyArr]);
+
+  // Fastest risers vs prior window (same length)
+  const complaintDelta = useMemo(() => {
+    const nowMap = new Map(
+      countBy(data, "complaint_type").map((x) => [x.name, x.value])
+    );
+    const prevMap = new Map(
+      countBy(prevData, "complaint_type").map((x) => [x.name, x.value])
+    );
+    const keys = new Set([...nowMap.keys(), ...prevMap.keys()]);
+    const rows = [];
+    for (const k of keys) {
+      const cur = nowMap.get(k) || 0;
+      const prev = prevMap.get(k) || 0;
+      const pct =
+        prev === 0 ? (cur > 0 ? 100 : 0) : ((cur - prev) / prev) * 100;
+      rows.push({ name: k, cur, prev, deltaPct: pct });
+    }
+    // only show items with enough base to matter
+    return rows
+      .filter((r) => r.cur >= 10 || r.prev >= 10)
+      .sort((a, b) => b.deltaPct - a.deltaPct)
+      .slice(0, 5);
+  }, [data, prevData]);
+
+  const accent = ACCENT_BY_BORO[borough] || "indigo";
 
   const SectionCard = ({ title, icon, color, children, right }) => (
     <Card withBorder shadow="sm" radius="md" p="md">
@@ -353,6 +466,16 @@ export default function BoroughsPage() {
     URL.revokeObjectURL(url);
   };
 
+  // borough vibe + move-in tip (mirrors Home)
+  const top3 = complaintsList.slice(0, 3).map((x) => x.name);
+  const moveTip = top3.find((t) => /noise/i.test(t))
+    ? "Consider white noise / interior bedrooms"
+    : top3.find((t) => /heat|hot water/i.test(t))
+    ? "Ask for heat history and boiler logs"
+    : top3.find((t) => /parking/i.test(t))
+    ? "Check overnight parking options"
+    : `Peak activity near ${busiestHour.label}`;
+
   return (
     <Container size="xl" py="xl">
       {/* top controls */}
@@ -378,14 +501,14 @@ export default function BoroughsPage() {
             w={280}
           />
         </Group>
-
+        {/* 
         <Button
           variant="light"
           leftSection={<IconDownload size={16} />}
           onClick={exportCsv}
         >
           Export CSV
-        </Button>
+        </Button> */}
       </Group>
 
       {err && (
@@ -405,7 +528,7 @@ export default function BoroughsPage() {
         </Group>
       ) : (
         <>
-          {/* Snapshot hero */}
+          {/* Snapshot hero (accented like Home) */}
           <Card
             withBorder
             shadow="xs"
@@ -414,15 +537,20 @@ export default function BoroughsPage() {
             mb="xl"
             style={{
               background:
-                "linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0))",
+                "linear-gradient(180deg, var(--mantine-color-gray-0), rgba(0,0,0,0))",
+              borderLeft: `4px solid var(--mantine-color-${accent}-6)`,
             }}
           >
             <Group justify="space-between" align="center" mb="xs">
-              <Group gap="xs" align="center">
-                <ThemeIcon variant="light" color="orange" radius="xl">
+              <Group gap="xs" align="center" wrap="wrap">
+                <ThemeIcon variant="light" color={accent} radius="xl">
                   <IconTrophy size={18} />
                 </ThemeIcon>
-                <Title order={4} c="orange.9" style={{ letterSpacing: -0.2 }}>
+                <Title
+                  order={4}
+                  c={`${accent}.9`}
+                  style={{ letterSpacing: -0.2 }}
+                >
                   {borough} snapshot
                 </Title>
                 <Badge variant="light" color="gray">
@@ -430,10 +558,24 @@ export default function BoroughsPage() {
                 </Badge>
               </Group>
 
-              <Group gap="xs">
-                {/* <Badge color="blue" variant="light" size="lg">
-                  {fmt(total)}
-                </Badge> */}
+              <Group gap="xs" wrap="wrap">
+                <Badge
+                  color={pctChange >= 0 ? "teal" : "red"}
+                  variant="light"
+                  size="lg"
+                  leftSection={
+                    <IconTrendingUp
+                      size={14}
+                      style={{
+                        transform: pctChange >= 0 ? "none" : "rotate(180deg)",
+                      }}
+                    />
+                  }
+                >
+                  {fmt(total)} total ({pctChange >= 0 ? "+" : ""}
+                  {isFinite(pctChange) ? pctChange.toFixed(1) : "0"}% vs prior
+                  window)
+                </Badge>
                 <Button
                   component={Link}
                   to="/"
@@ -449,15 +591,10 @@ export default function BoroughsPage() {
               <SectionCard
                 title="Total complaints"
                 icon={<IconClipboardCheck size={18} />}
-                color="blue"
-                right={
-                  <Badge color="blue" variant="light">
-                    {fmt(total)}
-                  </Badge>
-                }
+                color={accent}
               >
                 <Text size="sm" c="gray.7">
-                  {fmt(total)} records in {borough} during {badgeStart} to{" "}
+                  {fmt(total)} records in {borough} during {badgeStart} →{" "}
                   {badgeEnd}.
                 </Text>
               </SectionCard>
@@ -499,6 +636,101 @@ export default function BoroughsPage() {
                     ({fmt(topAgency?.value)})
                   </Text>
                 </Text>
+              </SectionCard>
+            </SimpleGrid>
+
+            <Divider my="md" />
+
+            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+              {/* Vibe + tip */}
+              <SectionCard
+                title="Borough vibe"
+                icon={<IconSparkles size={18} />}
+                color={accent}
+                right={
+                  <Badge variant="light" color="gray">
+                    Peak hour: {busiestHour.label}
+                  </Badge>
+                }
+              >
+                <Stack gap={6}>
+                  <Group gap={6} wrap="no-wrap">
+                    <ThemeIcon
+                      size="sm"
+                      variant="light"
+                      color="yellow"
+                      radius="xl"
+                    >
+                      <IconBolt size={14} />
+                    </ThemeIcon>
+                    <Text size="sm">{top3.join(" • ") || "—"}</Text>
+                  </Group>
+                  <Group gap={6} wrap="no-wrap">
+                    <ThemeIcon
+                      size="sm"
+                      variant="light"
+                      color="teal"
+                      radius="xl"
+                    >
+                      <IconTarget size={14} />
+                    </ThemeIcon>
+                    <Text size="sm">Tip: {moveTip}</Text>
+                  </Group>
+                </Stack>
+              </SectionCard>
+
+              {/* 24h rhythm */}
+              <SectionCard
+                title="24-hour pattern"
+                icon={<IconClock size={18} />}
+                color={accent}
+              >
+                <Text size="xs" c="dimmed" mb={6}>
+                  Last window activity by hour
+                </Text>
+                <RhythmBars data={hourlyArr} color={accent} />
+              </SectionCard>
+
+              {/* Risers vs prior window */}
+              <SectionCard
+                title="Fastest risers (vs prior)"
+                icon={<IconTrendingUp size={18} />}
+                color="teal"
+              >
+                {complaintDelta.length === 0 ? (
+                  <Text size="sm" c="gray.7">
+                    No clear risers for this window.
+                  </Text>
+                ) : (
+                  <Stack gap="xs">
+                    {complaintDelta.map((r) => {
+                      const up = r.deltaPct >= 0;
+                      return (
+                        <Group key={r.name} justify="space-between">
+                          <Text size="sm" lineClamp={1} title={r.name}>
+                            {r.name}
+                          </Text>
+                          <Badge
+                            color={up ? "teal" : "red"}
+                            variant="light"
+                            leftSection={
+                              <IconTrendingUp
+                                size={12}
+                                style={{
+                                  transform: up ? "none" : "rotate(180deg)",
+                                }}
+                              />
+                            }
+                          >
+                            {up ? "+" : ""}
+                            {isFinite(r.deltaPct) ? r.deltaPct.toFixed(0) : "0"}
+                            %
+                          </Badge>
+                        </Group>
+                      );
+                    })}
+                  </Stack>
+                )}
               </SectionCard>
             </SimpleGrid>
 
@@ -575,7 +807,7 @@ export default function BoroughsPage() {
 
             <SectionCard
               title="Where it happens"
-              icon={<IconLocation size={18} />}
+              icon={<IconMapPin size={18} />}
               color="orange"
             >
               <ListWithBars items={locationsList} color="orange" />

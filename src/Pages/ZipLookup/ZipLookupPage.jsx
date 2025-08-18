@@ -10,6 +10,8 @@ import {
   Select,
   Pagination,
   Tooltip,
+  Group,
+  Badge,
 } from "@mantine/core";
 import { IconSearch, IconMapPin } from "@tabler/icons-react";
 import { useState, useEffect, useRef } from "react";
@@ -23,12 +25,40 @@ export default function ZipLookupPage() {
   const [error, setError] = useState(null);
   const [limit, setLimit] = useState("500");
   const [page, setPage] = useState(1);
+
   const [mapOpen, setMapOpen] = useState(false);
+  const [mapFocus, setMapFocus] = useState(null); // {lat, lon, id, title, address, when} | null
+
   const itemsPerPage = 10;
   const topRef = useRef(null);
 
+  const hasCoords = (r) => {
+    // NYC 311 has latitude/longitude fields; sometimes there's a "location" object too
+    const lat =
+      r?.latitude != null
+        ? parseFloat(r.latitude)
+        : r?.location?.coordinates?.[1];
+    const lon =
+      r?.longitude != null
+        ? parseFloat(r.longitude)
+        : r?.location?.coordinates?.[0];
+    return Number.isFinite(lat) && Number.isFinite(lon);
+  };
+
+  const getCoords = (r) => {
+    const lat =
+      r?.latitude != null
+        ? parseFloat(r.latitude)
+        : r?.location?.coordinates?.[1];
+    const lon =
+      r?.longitude != null
+        ? parseFloat(r.longitude)
+        : r?.location?.coordinates?.[0];
+    return { lat, lon };
+  };
+
   const handleSearch = async () => {
-    if (!zip.match(/^\d{5}$/)) {
+    if (!/^\d{5}$/.test(zip)) {
       setError("Please enter a valid 5-digit ZIP code.");
       return;
     }
@@ -36,16 +66,39 @@ export default function ZipLookupPage() {
     setLoading(true);
     setResults([]);
     setPage(1);
+    setMapFocus(null);
+
     try {
-      const response = await axios.get(
-        `https://data.cityofnewyork.us/resource/erm2-nwe9.json?$limit=${limit}&$order=created_date DESC&incident_zip=${zip}`
-      );
-      setResults(response.data);
-      if (response.data.length === 0) {
-        setError("No complaints found for this ZIP code.");
-      }
+      // Request only the fields we use, including coordinates
+      const url = "https://data.cityofnewyork.us/resource/erm2-nwe9.json";
+      const params = {
+        $limit: limit,
+        $order: "created_date DESC",
+        incident_zip: zip,
+        $select: [
+          "unique_key",
+          "created_date",
+          "complaint_type",
+          "descriptor",
+          "borough",
+          "agency_name",
+          "status",
+          "incident_zip",
+          "incident_address",
+          "city",
+          "latitude",
+          "longitude",
+          "location",
+        ].join(","),
+      };
+
+      const response = await axios.get(url, { params });
+      const rows = Array.isArray(response.data) ? response.data : [];
+
+      setResults(rows);
+      if (rows.length === 0) setError("No complaints found for this ZIP code.");
     } catch (err) {
-      const msg = err.response
+      const msg = err?.response
         ? `Error ${err.response.status}: ${err.response.statusText}`
         : "Failed to fetch data. Try again later.";
       setError(msg);
@@ -83,7 +136,7 @@ export default function ZipLookupPage() {
         padding="md"
         bg="#f8f9fa"
       >
-        <Text c="blue.8" size="sm" fw={600}>
+        <Text c="indigo.8" size="sm" fw={600}>
           ZIP Code Lookup
         </Text>
         <Text size="xs" pt={4} c="gray.7">
@@ -125,7 +178,7 @@ export default function ZipLookupPage() {
           leftSection={<IconSearch size={16} />}
           onClick={handleSearch}
           disabled={loading || !zip}
-          color="blue"
+          color="indigo"
         >
           {loading ? <Loader size="xs" /> : "Search"}
         </Button>
@@ -137,56 +190,80 @@ export default function ZipLookupPage() {
       </Stack>
 
       {Object.keys(boroughSummary).length > 0 && (
-        <Card shadow="xs" radius="md" mb="sm" p="sm">
-          <Text size="xs" fw={500} mb={4}>
+        <Card withBorder shadow="xs" radius="md" mb="sm" p="sm">
+          <Text size="xs" fw={500} mb={6}>
             Borough Summary
           </Text>
-          {Object.entries(boroughSummary).map(([b, count]) => (
-            <Text size="xs" key={b}>
-              {b}: {count}
-            </Text>
-          ))}
+          <Group gap="xs">
+            {Object.entries(boroughSummary).map(([b, count]) => (
+              <Badge key={b} variant="light" color="indigo">
+                {b}: {count}
+              </Badge>
+            ))}
+          </Group>
         </Card>
       )}
 
       {results.length > 0 && (
         <>
-          <Button
-            variant="light"
-            onClick={() => setMapOpen(true)}
-            color="blue"
-            size="xs"
-            mb="sm"
-            leftSection={<IconMapPin size={14} />}
-          >
-            Show Map
-          </Button>
+          <Group justify="space-between" align="center" mb="sm">
+            <Button
+              variant="light"
+              onClick={() => {
+                setMapFocus(null); // show all pins
+                setMapOpen(true);
+              }}
+              color="indigo"
+              size="xs"
+              leftSection={<IconMapPin size={14} />}
+            >
+              Show Map ({results.length.toLocaleString()})
+            </Button>
+            <Text size="xs" c="gray.7">
+              Found {results.length.toLocaleString()} complaints in {zip}
+            </Text>
+          </Group>
 
-          <Divider
-            label={`Found ${results.length} complaints in ${zip}`}
-            labelPosition="center"
-            mb="md"
-          />
+          <Divider mb="md" />
 
           <Stack>
-            {paginatedResults.map((item, index) => (
-              <Card key={index} withBorder shadow="sm" padding="md" radius="md">
-                <Text fw={600} mb={4}>
-                  {item.complaint_type}
-                </Text>
-                <Text size="sm" c="gray.7" mb={4}>
-                  {item.descriptor || "No description"} ·{" "}
-                  {item.created_date?.split("T")[0]}
-                </Text>
-                <Text size="xs" c="gray.6" mb={4}>
-                  Agency: {item.agency_name || "N/A"} · Borough:{" "}
-                  {item.borough || "N/A"}
-                </Text>
-                <Text size="xs" c="blue.7" fw={500}>
-                  Status: {item.status || "Unknown"}
-                </Text>
-              </Card>
-            ))}
+            {paginatedResults.map((item) => {
+              const coordsAvailable = hasCoords(item);
+              return (
+                <Card
+                  key={item.unique_key || item.created_date}
+                  withBorder
+                  shadow="sm"
+                  padding="md"
+                  radius="md"
+                >
+                  <Group justify="space-between" align="start">
+                    <div>
+                      <Text fw={600} mb={4}>
+                        {item.complaint_type}
+                      </Text>
+                      <Text size="sm" c="gray.7" mb={4}>
+                        {item.descriptor || "No description"} ·{" "}
+                        {item.created_date?.split("T")[0]}
+                      </Text>
+                      <Text size="xs" c="gray.6" mb={4}>
+                        Agency: {item.agency_name || "N/A"} · Borough:{" "}
+                        {item.borough || "N/A"}
+                      </Text>
+                      <Text size="xs" c="indigo.7" fw={500}>
+                        Status: {item.status || "Unknown"}
+                      </Text>
+                      {item.incident_address && (
+                        <Text size="xs" c="gray.6" mt={4}>
+                          Address: {item.incident_address}
+                          {item.city ? `, ${item.city}` : ""}
+                        </Text>
+                      )}
+                    </div>
+                  </Group>
+                </Card>
+              );
+            })}
 
             {totalPages > 1 && (
               <Pagination
@@ -205,6 +282,7 @@ export default function ZipLookupPage() {
         onClose={() => setMapOpen(false)}
         zip={zip}
         results={results}
+        focus={mapFocus} // NEW: optional single-report focus
       />
     </Container>
   );
