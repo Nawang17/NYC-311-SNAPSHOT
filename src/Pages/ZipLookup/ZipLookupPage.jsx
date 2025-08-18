@@ -56,7 +56,7 @@ export default function ZipLookupPage() {
         : r?.location?.coordinates?.[0];
     return { lat, lon };
   };
-
+  const APP_TOKEN = import.meta.env.VITE_APP_TOKEN;
   const handleSearch = async () => {
     if (!/^\d{5}$/.test(zip)) {
       setError("Please enter a valid 5-digit ZIP code.");
@@ -92,7 +92,10 @@ export default function ZipLookupPage() {
         ].join(","),
       };
 
-      const response = await axios.get(url, { params });
+      const response = await axios.get(url, {
+        params,
+        headers: APP_TOKEN ? { "X-App-Token": APP_TOKEN } : undefined,
+      });
       const rows = Array.isArray(response.data) ? response.data : [];
 
       setResults(rows);

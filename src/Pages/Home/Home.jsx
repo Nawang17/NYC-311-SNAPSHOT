@@ -54,10 +54,11 @@ async function fetchWindowRange(startDate, endDate) {
   const startLit = dayStartLiteral(startDate);
   const endLit = dayEndLiteral(endDate);
   const where = `created_date between '${startLit}' and '${endLit}'`;
-
+  const APP_TOKEN = import.meta.env.VITE_APP_TOKEN;
   let total = 0;
   try {
     const c = await axios.get(SODA, {
+      headers: APP_TOKEN ? { "X-App-Token": APP_TOKEN } : undefined,
       params: { $query: `SELECT count(1) WHERE ${where}` },
     });
     total = Number(c.data?.[0]?.count || c.data?.[0]?.count_1 || 0);
@@ -75,7 +76,10 @@ async function fetchWindowRange(startDate, endDate) {
       `SELECT unique_key, created_date, complaint_type, borough, agency_name, location_type, city ` +
       `WHERE ${where} ORDER BY created_date DESC LIMIT ${pageLimit} OFFSET ${offset}`;
     try {
-      const r = await axios.get(SODA, { params: { $query: q } });
+      const r = await axios.get(SODA, {
+        headers: APP_TOKEN ? { "X-App-Token": APP_TOKEN } : undefined,
+        params: { $query: q },
+      });
       const batch = Array.isArray(r.data) ? r.data : [];
       rows.push(...batch);
       fetched += batch.length;

@@ -107,7 +107,7 @@ const addShare = (items, total) =>
 
 const fmt = (n) => (typeof n === "number" ? n.toLocaleString() : n);
 const safeTop = (arr) => (arr && arr.length ? arr[0] : null);
-
+const APP_TOKEN = import.meta.env.VITE_APP_TOKEN;
 // Page through all rows in the window
 async function fetchBoroughRangeAll(borough, startSOQL, endSOQL) {
   const where = `borough='${borough}' AND created_date between '${startSOQL}' and '${endSOQL}'`;
@@ -121,7 +121,10 @@ async function fetchBoroughRangeAll(borough, startSOQL, endSOQL) {
       `agency_name, status, resolution_description, location_type, city ` +
       `WHERE ${where} ORDER BY created_date DESC LIMIT ${PAGE_SIZE} OFFSET ${offset}`;
 
-    const res = await axios.get(SODA, { params: { $query: q } });
+    const res = await axios.get(SODA, {
+      params: { $query: q },
+      headers: APP_TOKEN ? { "X-App-Token": APP_TOKEN } : undefined,
+    });
 
     const batch = Array.isArray(res.data) ? res.data : [];
     all.push(...batch);

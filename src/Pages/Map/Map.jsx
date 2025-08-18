@@ -60,6 +60,7 @@ export default function MapPage() {
   const [limit, setLimit] = useState("500");
   const [borough, setBorough] = useState("CITYWIDE");
   const [loading, setLoading] = useState(true);
+  const APP_TOKEN = import.meta.env.VITE_APP_TOKEN;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,7 +70,9 @@ export default function MapPage() {
         url += `&borough=${borough}`;
       }
       try {
-        const response = await axios.get(url);
+        const response = await axios.get(url, {
+          headers: APP_TOKEN ? { "X-App-Token": APP_TOKEN } : undefined,
+        });
         setComplaints(response.data);
       } catch (err) {
         console.error("Error fetching map data:", err);
